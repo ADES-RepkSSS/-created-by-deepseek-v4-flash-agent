@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>重庆旅游地图 · 景点 / 美食 / 住宿（高德地图）</title>
+<style>
+  html, body { margin:0; padding:0; height:100%; font-family:"Microsoft YaHei","PingFang SC",sans-serif; }
+  #map { height:100%; width:100%; position:relative; }
+  .ctl { position:absolute; z-index:1001; background:#fff; border-radius:8px; box-shadow:0 1px 6px rgba(0,0,0,.3); font-size:13px; }
+  .ctl b { display:block; margin-bottom:2px; }
+  .ctl label { display:block; line-height:1.9; cursor:pointer; }
+  .ctl input { vertical-align:-2px; margin-right:4px; }
+  #title { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:1001; background:rgba(255,255,255,.94); padding:6px 18px; border-radius:20px; box-shadow:0 1px 6px rgba(0,0,0,.25); font-size:14px; font-weight:600; white-space:nowrap; }
+  #searchBox { position:absolute; top:52px; left:50%; transform:translateX(-50%); z-index:1001; background:#fff; border-radius:8px; box-shadow:0 1px 6px rgba(0,0,0,.3); padding:6px 10px; width:340px; max-width:80%; }
+  #searchInput { width:100%; border:1px solid #ddd; border-radius:6px; padding:6px 10px; font-size:14px; box-sizing:border-box; outline:none; }
+  #searchHint { font-size:11px; color:#999; margin-top:4px; }
+  #suggest { position:absolute; top:100%; left:0; right:0; margin-top:4px; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.25); max-height:260px; overflow:auto; display:none; z-index:1002; }
+  .sug-item { padding:7px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:13px; }
+  .sug-item:hover { background:#f2f7ff; }
+  .sug-tag { display:inline-block; font-size:10px; border-radius:3px; padding:0 4px; margin-right:6px; color:#fff; }
+  .sug-tag.my { background:#4a90d9; }
+  .sug-tag.poi { background:#f39c12; }
+  .sug-cat { float:right; color:#999; font-size:11px; max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sug-sep { padding:4px 10px; color:#aaa; font-size:11px; background:#fafafa; }
+  #routePanel { position:absolute; left:10px; top:56px; z-index:1001; background:#fff; border-radius:8px; box-shadow:0 1px 6px rgba(0,0,0,.3); padding:10px 12px; width:280px; display:none; font-size:13px; }
+  #routePanel input[type=text] { width:100%; box-sizing:border-box; border:1px solid #ddd; border-radius:4px; padding:4px 6px; margin:2px 0 6px; font-size:13px; }
+  #routePanel .rmode label { margin-right:10px; font-size:13px; }
+  #routeResult { margin-top:6px; max-height:220px; overflow:auto; font-size:12px; line-height:1.7; color:#333; }
+  #routeResult .step { border-top:1px dashed #eee; padding:4px 0; }
+  .btn { display:inline-block; border:1px solid #4a90d9; background:#fff; color:#4a90d9; border-radius:4px; padding:2px 8px; cursor:pointer; font-size:12px; margin-right:4px; }
+  .btn:hover { background:#4a90d9; color:#fff; }
+  .btn-primary { background:#4a90d9; color:#fff; width:100%; margin-top:4px; padding:5px 0; border:none; border-radius:4px; cursor:pointer; font-size:13px; }
+  #calibStatus { max-height:130px; overflow-y:auto; max-width:250px; word-break:break-all; }
+  #manualHint { position:absolute; top:100px; left:50%; transform:translateX(-50%); z-index:1001; background:rgba(255,165,0,.95); color:#fff; padding:8px 16px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.3); font-size:13px; display:none; }
+  /* 移动端适配 */
+  @media (max-width: 640px) {
+    #title { font-size:12px; padding:4px 10px; white-space:normal; width:88%; text-align:center; }
+    #searchBox { width:92%; top:46px; }
+    #searchHint { display:none; }
+    #routePanel { left:4px; right:4px; top:52px; width:auto; max-height:65%; overflow-y:auto; }
+    .ctl { max-width:88vw; }
+    #calibStatus { max-width:200px; }
+    #manualHint { width:88%; text-align:center; }
+  }
+  #configOverlay { position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; }
+  #configBox { background:#fff; border-radius:10px; padding:18px 20px; width:min(380px, 92vw); box-shadow:0 4px 20px rgba(0,0,0,.3); font-size:13px; max-height:85vh; overflow:auto; }
+  #configBox input { width:100%; box-sizing:border-box; border:1px solid #ddd; border-radius:6px; padding:8px 10px; font-size:14px; margin-top:4px; }
+  .ctrl { width:min(230px, 40vw); padding:8px 10px; }
+  .phead { display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
+  .ptoggle { font-size:11px; color:#4a90d9; cursor:pointer; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; column-gap:6px; }
+  .grid2 label { font-size:12px; line-height:1.9; }
+  .schip { display:inline-block; border:1px solid #ccc; background:#f7f9fc; color:#4a90d9; border-radius:4px; padding:1px 7px; margin:2px 3px 0 0; font-size:11px; text-decoration:none; }
+  .schip:hover { background:#e8f0fb; }
+  .ctrl .btn { min-height:28px; width:100%; margin-top:4px; font-size:12px; }
+  @media (max-width:640px) {
+    .ctrl { width:min(240px, 48vw); }
+    .ctrl .btn { min-height:38px; font-size:13px; }
+    .grid2 label { font-size:12px; }
+  }
+</style>
+</head>
+<body>
+<div id="title">重庆旅游地图 · 景点 / 美食 / 平价住宿（高德地图官方版）</div>
+<div id="searchBox">
+  <input id="searchInput" type="text" placeholder="搜索地点，如：洪崖洞、天生三桥…" autocomplete="off">
+  <div id="searchHint">回车优先定位本站标记（蓝色），其次高德 POI（橙色）</div>
+  <div id="suggest"></div>
+</div>
+<div id="routePanel">
+  <b>路线规划（无需定位）</b>
+  <div style="margin-top:6px;">
+    起点：<input type="text" id="fromInput" placeholder="输入起点，或点击标记选">
+    终点：<input type="text" id="toInput" placeholder="输入终点，或点击标记选">
+    <div class="rmode">
+      <label><input type="radio" name="rmode" value="driving" checked> 驾车</label>
+      <label><input type="radio" name="rmode" value="transit"> 公交</label>
+      <label><input type="radio" name="rmode" value="subway"> 地铁/轻轨</label>
+      <label><input type="radio" name="rmode" value="walking"> 步行</label>
+    </div>
+    <button class="btn-primary" onclick="doRoute()">规划路线</button>
+    <button class="btn" style="width:100%;margin-top:4px;" onclick="closeRoute()">关闭</button>
+  </div>
+  <div id="routeResult"></div>
+</div>
+<div id="manualHint"></div>
+<div id="configOverlay">
+  <div id="configBox">
+    <b>高德地图配置</b>
+    <div style="margin-top:8px;">API Key（Web端 JS API）：</div>
+    <input id="cfgKey" type="text" placeholder="粘贴你的高德 Key" autocomplete="off">
+    <div style="margin-top:6px;">安全密钥 jscode（可留空）：</div>
+    <input id="cfgJsCode" type="text" placeholder="安全密钥（控制台与Key并列显示）" autocomplete="off">
+    <button class="btn-primary" style="margin-top:10px;" onclick="saveConfig()">保存并加载地图</button>
+    <div id="cfgMsg" style="font-size:12px;color:#c0392b;margin-top:6px;"></div>
+    <div style="font-size:11px;color:#999;margin-top:8px;line-height:1.6;">高德 Key 仅保存在本机浏览器（localStorage），可放心部署到 GitHub Pages 等。若报 INVALID_USER_DOMAIN，将 Key 域名白名单设为「不限制」。</div>
+    <div style="margin-top:14px;border-top:1px dashed #ddd;padding-top:10px;"><b>🤖 AI 介绍（可选，OpenAI 兼容接口）</b>
+      <div style="margin-top:6px;">API 地址（Base URL，含 /v1）：</div>
+      <input id="cfgAiBase" type="text" placeholder="如 https://api.openai.com/v1 或 https://api.deepseek.com/v1" autocomplete="off">
+      <div style="margin-top:6px;">API Key：</div>
+      <input id="cfgAiKey" type="text" placeholder="AI 接口的 Key" autocomplete="off">
+      <div style="margin-top:6px;">模型名：</div>
+      <input id="cfgAiModel" type="text" list="modelList" placeholder="gpt-4o-mini / deepseek-chat" autocomplete="off">
+      <datalist id="modelList">
+        <option value="gpt-4o-mini"></option><option value="gpt-4o"></option>
+        <option value="deepseek-chat"></option><option value="deepseek-reasoner"></option>
+        <option value="qwen-plus"></option><option value="qwen-turbo"></option>
+        <option value="glm-4-flash"></option><option value="moonshot-v1-8k"></option>
+      </datalist>
+      <div style="font-size:11px;color:#999;margin-top:6px;line-height:1.6;">配置后：点击标点 →「🔍 联网搜索」→「🤖 生成AI介绍」，AI 内容以流式方式实时显示在弹窗内（不跳转）。要求接口支持 Chat Completions 流式且允许浏览器跨域（CORS），如 OpenAI / DeepSeek / 通义 / 智谱等。</div>
+    </div>
+  </div>
+</div>
+<div id="map"></div>
+<script>
+/* ============ 高德地图配置（Key 仅保存在本机浏览器，可放心上传到 GitHub） ============ */
+var CONFIG_KEY = 'cqAmapKey', CONFIG_JSCODE = 'cqAmapJsCode';
+function getSavedKey() { try { return localStorage.getItem(CONFIG_KEY) || ''; } catch (e) { return ''; } }
+function getSavedJsCode() { try { return localStorage.getItem(CONFIG_JSCODE) || ''; } catch (e) { return ''; } }
+function getSavedAiBase() { try { return localStorage.getItem('cqAiBase') || ''; } catch (e) { return ''; } }
+function getSavedAiKey() { try { return localStorage.getItem('cqAiKey') || ''; } catch (e) { return ''; } }
+function getSavedAiModel() { try { return localStorage.getItem('cqAiModel') || 'gpt-4o-mini'; } catch (e) { return 'gpt-4o-mini'; } }
+function showConfig(msg) {
+  var k = document.getElementById('cfgKey'), j = document.getElementById('cfgJsCode');
+  if (!k) return;
+  k.value = getSavedKey();
+  j.value = getSavedJsCode();
+  document.getElementById('cfgAiBase').value = getSavedAiBase();
+  document.getElementById('cfgAiKey').value = getSavedAiKey();
+  document.getElementById('cfgAiModel').value = getSavedAiModel();
+  document.getElementById('cfgMsg').innerHTML = msg || '';
+  document.getElementById('configOverlay').style.display = 'flex';
+}
+function saveConfig() {
+  var k = document.getElementById('cfgKey').value.trim();
+  var j = document.getElementById('cfgJsCode').value.trim();
+  var ab = document.getElementById('cfgAiBase').value.trim();
+  var ak = document.getElementById('cfgAiKey').value.trim();
+  var am = document.getElementById('cfgAiModel').value.trim() || 'gpt-4o-mini';
+  var savedK = getSavedKey();
+  if (!k && !savedK) { document.getElementById('cfgMsg').innerHTML = '请填写高德 API Key（地图必需）；AI Key 可不填'; return; }
+  try {
+    localStorage.setItem(CONFIG_KEY, k || savedK);
+    localStorage.setItem(CONFIG_JSCODE, j);
+    localStorage.setItem('cqAiBase', ab);
+    localStorage.setItem('cqAiKey', ak);
+    localStorage.setItem('cqAiModel', am);
+  } catch (e) {}
+  location.reload();
+}
+function loadAMap(cb) {
+  var key = getSavedKey();
+  if (!key) { showConfig('请先填写高德 Key（Web端 JS API）以加载地图'); return; }
+  var js = getSavedJsCode();
+  if (js) { window._AMapSecurityConfig = { securityJsCode: js }; }
+  var s = document.createElement('script');
+  s.src = 'https://webapi.amap.com/maps?v=2.0&key=' + encodeURIComponent(key) +
+    '&plugin=AMap.PlaceSearch,AMap.AutoComplete,AMap.Driving,AMap.Transfer,AMap.Walking';
+  s.onload = function () { cb(); };
+  s.onerror = function () { showConfig('地图SDK加载失败：请检查网络或 Key 是否正确'); };
+  document.head.appendChild(s);
+}
+function ensureMap() { loadAMap(function () { initMap(); }); }
+</script>
+<script>
+// 数据格式: [名称, 纬度, 经度, 类别, 信息]
+// 类别: yz=渝中区核心景点  na=南岸区与南山  jb=江北·沙坪坝·九龙坡  wl=武隆  dz=大足与渝东北  ys=渝东南古镇山水  food=美食推荐  hotel=平价住宿
+function initMap() {
+var DATA = [
+  // ============ 渝中区核心景点 ============
+  ["解放碑",29.5566,106.5762,"yz","消费：免费"],
+  ["洪崖洞",29.5631,106.5777,"yz","消费：免费（内部餐饮另计）"],
+  ["长江索道",29.5552,106.5854,"yz","消费：单程20元/往返30元"],
+  ["李子坝轻轨穿楼",29.5545,106.5168,"yz","消费：免费（乘轻轨另购票）"],
+  ["鹅岭二厂文创公园",29.5544,106.5252,"yz","消费：免费"],
+  ["山城巷",29.551,106.5679,"yz","消费：免费"],
+  ["十八梯",29.5524,106.5704,"yz","消费：免费"],
+  ["湖广会馆",29.5595,106.589,"yz","消费：门票25元"],
+  ["白象居",29.5584,106.5855,"yz","消费：免费（居民区）"],
+  ["朝天门来福士广场",29.5678,106.5867,"yz","消费：商场免费；观景台约120元起"],
+  ["重庆人民大礼堂",29.5657,106.542,"yz","消费：门票约8元"],
+  ["重庆中国三峡博物馆",29.5661,106.544,"yz","消费：免费（需预约）"],
+  // ============ 南岸区与南山片区 ============
+  ["南山一棵树观景台",29.5569,106.5903,"na","消费：30元/人"],
+  ["壹华里夜景公园",29.5524,106.5985,"na","消费：免费"],
+  ["老君洞道观",29.5627,106.6016,"na","消费：免费"],
+  ["黄桷垭老街",29.5508,106.6035,"na","消费：免费"],
+  ["南山植物园",29.5703,106.6312,"na","消费：50元/人"],
+  ["龙门浩老街",29.5646,106.5856,"na","消费：免费"],
+  ["弹子石老街",29.5862,106.5934,"na","消费：免费"],
+  ["长嘉汇购物公园",29.5848,106.5916,"na","消费：免费"],
+  ["南滨路夜景",29.5691,106.5771,"na","消费：免费"],
+  ["慈云寺",29.5744,106.5918,"na","消费：免费"],
+  // ============ 江北·沙坪坝·九龙坡 ============
+  ["磁器口古镇",29.5741,106.456,"jb","消费：免费"],
+  ["白公馆",29.5548,106.4336,"jb","消费：免费（需预约）"],
+  ["渣滓洞",29.5651,106.4237,"jb","消费：免费（需预约）"],
+  ["歌乐山国家森林公园",29.5553,106.4118,"jb","消费：免费"],
+  ["观音桥步行街",29.5789,106.5328,"jb","消费：免费"],
+  ["北仓文创街区",29.5835,106.5342,"jb","消费：免费"],
+  ["九街",29.5841,106.5365,"jb","消费：免费（消费另计）"],
+  ["鸿恩寺森林公园",29.59,106.513,"jb","消费：免费"],
+  ["重庆动物园",29.5033,106.4968,"jb","消费：门票约25元"],
+  ["重庆大学",29.5649,106.4688,"jb","消费：免费（需预约）"],
+  // ============ 武隆世界自然遗产 ============
+  ["天生三桥（天坑三桥）",29.445,107.8,"wl","消费：旺季155/淡季125元"],
+  ["龙水峡地缝",29.435,107.79,"wl","消费：旺季105/淡季85元"],
+  ["仙女山国家森林公园",29.52,107.84,"wl","消费：60元+观光小火车25元"],
+  ["芙蓉洞",29.245,107.868,"wl","消费：旺季120/淡季65元"],
+  ["芙蓉江大峡谷",29.235,107.872,"wl","消费：游船约120元"],
+  ["印象武隆实景演出",29.51,107.81,"wl","消费：238元起"],
+  ["白马山天尺坪",29.25,107.6,"wl","消费：旺季60/淡季50元"],
+  ["天坑寨子景区",29.49,107.78,"wl","消费：门票约90元"],
+  ["懒坝国际禅境艺术度假区",29.52,107.84,"wl","消费：100元"],
+  // ============ 大足石刻与渝东北 ============
+  ["大足石刻·宝顶山",29.7736,105.8179,"dz","消费：115元/人"],
+  ["大足石刻·北山",29.703,105.719,"dz","消费：90元/人"],
+  ["丰都鬼城",29.878,107.73,"dz","消费：约100元/人"],
+  ["奉节白帝城·瞿塘峡",31.0397,109.5748,"dz","消费：约100元/人"],
+  ["巫山小三峡·小小三峡",31.1,109.88,"dz","消费：游船约120元"],
+  ["三峡之巅",31.05,109.59,"dz","消费：约100元/人"],
+  ["云阳龙缸景区",30.9435,109.008,"dz","消费：100元/人"],
+  ["万州大瀑布",30.647,108.32,"dz","消费：约98-100元/人"],
+  ["开州汉丰湖",31.19,108.395,"dz","消费：免费（游船另计）"],
+  ["云阳张飞庙",30.926,108.693,"dz","消费：约40元/人"],
+  // ============ 渝东南与古镇山水 ============
+  ["酉阳桃花源景区",28.84,108.765,"ys","消费：约100元/人"],
+  ["龚滩古镇",29.043,108.369,"ys","消费：免费（游船另计）"],
+  ["濯水古镇",29.241,108.712,"ys","消费：免费"],
+  ["黔江蒲花暗河",29.218,108.695,"ys","消费：约100元/人"],
+  ["彭水阿依河",29.26,108.16,"ys","消费：约90元/人"],
+  ["南川金佛山",28.99,107.18,"ys","消费：旺季75/淡季55元+索道100元"],
+  ["江津四面山",28.63,106.41,"ys","消费：约90元/人"],
+  ["中山古镇",28.76,106.39,"ys","消费：免费"],
+  ["合川涞滩古镇",30.114,106.429,"ys","消费：免费（二佛寺30元）"],
+  ["北碚缙云山",29.8327,106.3848,"ys","消费：免费（索道另计）"],
+  // ============ 美食推荐（饭馆） ============
+  ["珮姐老火锅（较场口总店）",29.556,106.573,"food","火锅 · 人均80-120元 · 贡菜丸子/屠场毛肚"],
+  ["周师兄大刀腰片火锅（解放碑总店）",29.5595,106.575,"food","火锅 · 人均100-150元 · 大刀腰片"],
+  ["小天鹅火锅（洪崖洞店）",29.564,106.5785,"food","火锅 · 人均90-130元 · 鸳鸯锅/毛肚鹅肠"],
+  ["刘一手火锅（解放碑好吃街旗舰店）",29.5553,106.5774,"food","火锅 · 人均80-110元"],
+  ["楠火锅（四小区总店）",29.5275,106.5615,"food","火锅 · 人均70-100元 · 本地排队王"],
+  ["卤校长老火锅（观音桥直营店）",29.581,106.536,"food","火锅 · 人均60-90元 · 卤菜/免费甜品"],
+  ["秦云老太婆摊摊面（万象城总店）",29.516,106.521,"food","小面 · 人均10-20元 · 干馏豌杂面"],
+  ["板凳面庄（松石支路店）",29.596,106.517,"food","小面 · 人均10-20元 · 牛肉面"],
+  ["花市豌杂面（民生路总店）",29.556,106.574,"food","小面 · 人均10-20元 · 豌杂面"],
+  ["吴童妹特色江湖菜（黄龙支路店）",29.594,106.543,"food","江湖菜 · 人均60-90元 · 水煮烧白"],
+  ["食色飞白（鎏嘉码头店）",29.573,106.544,"food","江湖菜 · 人均60-90元 · 霸王蒸"],
+  ["曾老幺鱼庄（长滨路店）",29.557,106.586,"food","江湖菜 · 人均70-100元 · 邮亭鲫鱼"],
+  ["纯阳老酒馆（七星岗店）",29.554,106.566,"food","川菜 · 人均60-90元 · 30年老字号"],
+  ["顺风123（解放碑店）",29.556,106.576,"food","川菜 · 人均70-100元 · 沸腾鱼"],
+  ["九村烤脑花（解放碑店）",29.556,106.5755,"food","烧烤 · 人均60-100元 · 烤脑花"],
+  ["好又来酸辣粉（八一路总店）",29.5555,106.5765,"food","小吃 · 人均8-15元 · 酸辣粉"],
+  // ============ 平价住宿（≤300元/晚） ============
+  ["如家派柏云酒店（解放碑洪崖洞店）",29.5585,106.5738,"hotel","130-260元/晚 · 距洪崖洞600米"],
+  ["汉庭酒店（解放碑来福士店）",29.5662,106.5803,"hotel","150-300元/晚 · 距朝天门500米"],
+  ["重庆彩嘉酒店（解放碑洪崖洞店）",29.5565,106.5726,"hotel","150-280元/晚 · 距解放碑400米"],
+  ["途悦·Z酒店（解放碑洪崖洞店）",29.556,106.5641,"hotel","160-300元/晚 · 近十八梯/较场口"],
+  ["重庆背包十年青年旅舍（解放碑店）",29.5548,106.572,"hotel","45-280元/晚 · 距解放碑800米"],
+  ["荣悦来酒店（解放碑洪崖洞店）",29.5536,106.5752,"hotel","140-260元/晚 · 距十八梯300米"],
+  ["梵朴酒店（南滨路长嘉汇店）",29.5845,106.5925,"hotel","180-300元/晚 · 长嘉汇SOHO"],
+  ["江景印象酒店（南滨公园店）",29.5482,106.5834,"hotel","150-280元/晚 · 东原1891"],
+  ["景悦酒店（南滨路长江索道店）",29.5527,106.5875,"hotel","130-260元/晚 · 近龙门浩老街"],
+  ["重庆明月朋酒店（南滨路下浩里店）",29.5505,106.594,"hotel","140-270元/晚 · 近下浩里"],
+  ["非晚（南山一棵树店）",29.548,106.602,"hotel","200-300元/晚 · 南山山居民宿"],
+  ["五瑞华廷花园酒店（南山店）",29.552,106.604,"hotel","160-290元/晚 · 南山半山花园"],
+  ["如家精选酒店（观音桥锦龙支路店）",29.5782,106.5329,"hotel","160-300元/晚 · 近观音桥步行街"],
+  ["汉庭酒店（观音桥九街店）",29.5839,106.5406,"hotel","140-280元/晚 · 九街商圈内"],
+  ["三脚猫青年旅舍民宿（观音桥店）",29.5767,106.532,"hotel","30-100元/晚 · 床位为主"],
+  ["重庆悦磁江景花园酒店（磁器口古镇店）",29.5835,106.4443,"hotel","150-300元/晚 · 距磁器口1.2公里"],
+  ["重庆沙磁时光酒店（磁器口古镇店）",29.5768,106.4432,"hotel","140-280元/晚 · 沙滨路江景"],
+  ["重庆玺舍客栈（磁器口古镇店）",29.5748,106.4476,"hotel","60-220元/晚 · 古镇内宝轮寺旁"],
+  ["重庆武隆途遇主题酒店",29.51,107.829,"hotel","120-260元/晚 · 游客中心对面"],
+  ["云汐酒店（仙女山游客中心店）",29.5104,107.8297,"hotel","130-280元/晚 · 游客中心旁"],
+  ["仙女山芮峰酒店（游客接待中心店）",29.5101,107.8293,"hotel","150-300元/晚 · 近印象武隆"],
+  ["武隆亲爱的客栈",29.5072,107.8238,"hotel","100-230元/晚 · 民宿型客栈"],
+  ["安悦度假酒店（仙女山游客中心店）",29.5053,107.8179,"hotel","120-260元/晚 · 适合亲子"],
+  ["入山民宿（仙女山游客中心店）",29.5091,107.8258,"hotel","100-240元/晚 · 夜宴步行街内"]
+];
+
+var CATS = {
+  yz:   { label:"渝中区核心景点",      color:"#e74c3c" },
+  na:   { label:"南岸区与南山片区",    color:"#e67e22" },
+  jb:   { label:"江北·沙坪坝·九龙坡", color:"#f1c40f" },
+  wl:   { label:"武隆世界自然遗产",    color:"#27ae60" },
+  dz:   { label:"大足石刻与渝东北",    color:"#8e44ad" },
+  ys:   { label:"渝东南与古镇山水",    color:"#16a085" },
+  food: { label:"美食推荐（饭馆）",     color:"#2980b9" },
+  hotel:{ label:"平价住宿（≤300元）",   color:"#e84393" }
+};
+
+var DETAIL = {
+  '解放碑': { addr: '重庆市渝中区民族路177号（解放碑步行街商圈中心）', feat: '重庆城市精神地标，原名"抗战胜利纪功碑"，1947年建成，是中国唯一纪念抗日战争胜利的纪念碑，碑高约27.5米。周边为全国闻名的解放碑步行街商圈，商场、老字号美食云集；入夜灯火辉煌，是外地游客来渝的第一站。', cost: '免费' },
+  '洪崖洞': { addr: '重庆市渝中区嘉陵江滨江路88号（近沧白路、千厮门大桥）', feat: '依崖而建的巴渝传统吊脚楼建筑群，共11层，融合民俗街、美食街与观景平台。夜晚金黄色灯光亮起，整座建筑酷似《千与千寻》中的汤屋，是重庆最火爆的网红打卡地，可远眺嘉陵江与对岸江北夜景。', cost: '免费（内部餐饮消费另计）' },
+  '长江索道': { addr: '重庆市渝中区新华路151号（长安寺站，近解放碑），跨江至南岸区上新街', feat: '被誉为"山城空中公共汽车"，1987年建成，是中国最长的城市跨江客运索道之一，全长约1166米，单程约4分钟。凌空飞渡长江，可将两江四岸、渝中半岛天际线与来福士大楼尽收眼底，也是《疯狂的石头》等影视取景地。', cost: '单程20元/人、往返30元/人（需预约，以现场公示为准）' },
+  '李子坝轻轨穿楼': { addr: '重庆市渝中区李子坝正街62号（轨道交通2号线李子坝站）', feat: '轨道交通2号线列车从居民楼6-8层穿楼而过，"轻轨穿楼"奇观因短视频爆红，是重庆"8D魔幻城市"最具代表性的画面。楼下设有观景平台与穿楼纪念馆，可近距离拍摄列车进出楼宇的瞬间。', cost: '免费（观景平台免费；乘轻轨另购票约2元起）' },
+  '鹅岭二厂文创公园': { addr: '重庆市渝中区鹅岭正街1号（原重庆印制二厂旧址）', feat: '由上世纪30年代老厂房改造的文创园区，工业遗迹与现代艺术碰撞，因电影《从你的全世界路过》取景走红，天台可俯瞰渝中半岛与嘉陵江景，是重庆文艺青年聚集地和热门拍照地。', cost: '免费（展览及店铺消费另计）' },
+  '山城巷': { addr: '重庆市渝中区山城巷（南纪门—领事巷段，近较场口）', feat: '重庆唯一以"山城"命名的百年老巷，依山就势、梯坎相连，被称为"重庆的烟火气与乡愁"。保留大量抗战时期及民国风貌建筑，茶馆、文创小店、悬崖步道与江景相映成趣。', cost: '免费' },
+  '十八梯': { addr: '重庆市渝中区中兴路1号（较场口商圈旁）', feat: '曾经连接上半城与下半城的百年老街，电影《从你的全世界路过》重要取景地。改造后保留老重庆梯坎、吊脚楼元素，融入非遗手作、茶馆、火锅等业态，可感受"上半城繁华、下半城市井"的强烈对比。', cost: '免费' },
+  '湖广会馆': { addr: '重庆市渝中区东水门正街4号（长江滨江路旁）', feat: '始建于清乾隆二十四年（1759年），是重庆现存规模最大的古会馆建筑群，由禹王宫、齐安公所、广东公所等组成，堪称清代移民会馆建筑博物馆。馆内常设"湖广填四川"移民文化陈列，可观看川剧变脸表演。', cost: '门票25元/人（2024年11月起重庆户籍游客凭身份证免费，以景区公示为准）' },
+  '白象居': { addr: '重庆市渝中区白象街1-6号（近东水门、长江边）', feat: '建于1992年的老式高层居民楼群，因"24层无电梯、每3层一个出口"的魔幻结构成为网红打卡地，是拍摄索道穿楼与老城天际线的绝佳机位，《少年的你》《火锅英雄》曾在此取景。游览请保持安静，勿打扰居民。', cost: '免费（居民区，请文明游览）' },
+  '朝天门来福士广场': { addr: '重庆市渝中区朝天门（嘉陵江与长江交汇处）', feat: '由8栋超高层塔楼与横跨250米的"水晶连廊"组成的巨型综合体，形似"朝天扬帆"。300米高空的水晶连廊可360度俯瞰两江交汇与渝中半岛，是欣赏"两江分明"奇景的最佳地点。', cost: '商场免费；探索舱·观景台约120元起' },
+  '重庆人民大礼堂': { addr: '重庆市渝中区人民路173号（人民广场北侧）', feat: '建成于1954年，仿北京天坛祈年殿与明清宫殿风格，绿色琉璃瓦大屋顶庄重大气，与人民广场、三峡博物馆共同构成城市文化中轴线，是重庆的标志性建筑。', cost: '门票约8元/人（以现场公示为准）' },
+  '重庆中国三峡博物馆': { addr: '重庆市渝中区人民路236号（人民广场西侧）', feat: '国家一级博物馆，馆藏三峡文物与巴渝历史文物18万余件，基本陈列"壮丽三峡""远古巴渝"等全面展现三峡库区考古与重庆城市变迁，镇馆之宝包括乌杨阙、偏将军金印等。', cost: '免费（需提前预约，凭身份证入馆，周一闭馆）' },
+  '南山一棵树观景台': { addr: '南岸区南山街道龙黄公路（南山风景区半山腰）', feat: '重庆最负盛名的城市夜景观景台，顶层露天平台可360度俯瞰渝中半岛，长江与嘉陵江交汇、朝天门、洪崖洞及半岛万家灯火尽收眼底，是拍摄"山城夜景"的经典机位。', cost: '30元/人（成人票）' },
+  '壹华里夜景公园': { addr: '南岸区南山街道黄桷垭片区（龙黄公路旁）', feat: '新晋网红夜景观赏地，依山势而建的开放式山地公园，山顶观景平台可360度环视渝中半岛与两江夜景，设有"天空之眼""鸟巢""喊泉"等创意打卡装置，被称为"山城版爱乐之城"。', cost: '免费' },
+  '老君洞道观': { addr: '南岸区南山街道龙黄公路旁（老君坡，近南山一棵树）', feat: '有"川东第一道观"之称，始建于唐代，现存建筑多为明清遗构。依老君坡而建，红墙青瓦、古木参天，山顶玉皇殿前平台可俯瞰长江与渝中半岛，观景效果不输一棵树且免费开放。', cost: '免费（香火随缘）' },
+  '黄桷垭老街': { addr: '南岸区南山街道黄桷垭正街', feat: '千年古驿道上的历史老街，曾是"川黔古道"必经之地，也是作家三毛的故居所在地。2020年修缮后重现明清巴渝民居风貌，青石板路、吊脚楼、老茶馆与文创小店并存，适合与南山其他景点串联徒步。', cost: '免费' },
+  '南山植物园': { addr: '南岸区南山街道南山路101号', feat: '国家AAAA级景区，收集培育植物5000余种，山茶园、蔷薇园、梅园、兰园与大型温室各具特色，拥有树龄400余年、号称"山茶花王"的古山茶；春季樱花、山茶、玉兰相继绽放，是重庆最热门的赏花胜地。', cost: '50元/人（成人票，以实际情况为准）' },
+  '龙门浩老街': { addr: '南岸区南滨路（东水门大桥南桥头，下浩片区）', feat: '重庆开埠时期最早的涉外街区之一，依山傍江的巴渝吊脚楼群层层叠叠，留存百余年前的民国洋房与抗战陪都建筑遗存，现为文创街区，抬头即是东水门大桥与渝中半岛天际线。', cost: '免费' },
+  '弹子石老街': { addr: '南岸区弹子石街道泰昌路（南滨路东段）', feat: '依山就势的"九级台地"老街，历史上是重庆开埠时期重要的水运商贸重镇，王家大院、法国水师兵营旧址保存至今。沿石阶登高可眺望朝天门与两江交汇，与长嘉汇购物公园相连。', cost: '免费' },
+  '长嘉汇购物公园': { addr: '南岸区泰昌路（弹子石老街旁，两江交汇处南岸）', feat: '地处长江、嘉陵江两江交汇处南岸，顶层观景平台可同时俯瞰渝中半岛、江北嘴与南岸夜景，被誉为"重庆两江夜景最佳观赏地"，是集休闲购物与观光打卡于一体的城市地标。', cost: '免费（园内消费另计）' },
+  '南滨路夜景': { addr: '南岸区南滨路（西起石板坡长江大桥，东至朝天门大桥）', feat: '重庆最美的滨江大道，沿长江南岸绵延约20公里，与渝中半岛隔江相望。入夜后对岸洪崖洞、来福士等天际线灯光尽收眼底，沿途串联海棠烟雨公园、慈云寺、龙门浩、弹子石老街，被誉为"重庆十大夜景"之一。', cost: '免费' },
+  '慈云寺': { addr: '南岸区玄坛庙（涂山镇慈云街，南滨路旁）', feat: '始建于唐代的千年古刹，是重庆现存最早的佛教寺庙之一，也是罕见的僧尼合庙。寺内七级浮屠宝塔临江矗立，山门、钟楼融合中西建筑元素，可免费入内参观，感受闹市中的宁静禅意。', cost: '免费（香火随缘）' },
+  '磁器口古镇': { addr: '重庆市沙坪坝区磁器口街道磁器口正街（嘉陵江畔）', feat: '始建于宋代的千年古镇，拥有"一江两溪三山四街"的独特地貌，是"中国历史文化名街"、国家AAAA级景区。陈麻花、毛血旺、古镇鸡杂等巴渝小吃云集，宝轮寺、钟家院与码头文化、川剧变脸相映成趣。', cost: '免费' },
+  '白公馆': { addr: '重庆市沙坪坝区歌乐山（歌乐山烈士陵园景区内）', feat: '原为四川军阀白驹的郊野别墅"香山别墅"，抗战时期被军统改建为秘密监狱，是小说《红岩》的重要发生地。馆内保留原牢房、刑讯室等历史场景，与渣滓洞同属红岩革命文化景区。', cost: '免费（需提前在红岩联线平台预约）' },
+  '渣滓洞': { addr: '重庆市沙坪坝区歌乐山麓（渣滓洞景区）', feat: '原为人工采煤小煤窑，后扩建为国民党军统集中营，曾关押江姐（江竹筠）等大批革命志士，是《红岩》《烈火中永生》的原型地，是重庆最具代表性的红色地标。', cost: '免费（需提前预约）' },
+  '歌乐山国家森林公园': { addr: '重庆市沙坪坝区歌乐山街道', feat: '重庆主城著名的"城市绿肺"与"天然氧吧"，以狮子峰、云顶寺遗址等景点著称，登顶可俯瞰嘉陵江与沙坪坝城区风光；园内设有观光索道与生态登山步道，与白公馆、渣滓洞相邻。', cost: '免费（索道等内部项目另收费）' },
+  '观音桥步行街': { addr: '重庆市江北区观音桥（观音桥商圈步行街）', feat: '重庆规模最大的商圈之一，与解放碑并称两大商业中心，汇聚北城天街、大融城等大型购物中心；毗邻"不夜九街"，可一站式体验重庆现代都市的繁华与活力。', cost: '免费' },
+  '北仓文创街区': { addr: '重庆市江北区观音桥街道塔坪55号', feat: '由上世纪五六十年代老纺织仓库改造的文创街区，保留红砖厂房与工业遗迹，内设北仓图书馆、设计师工作室、咖啡店与艺术展览空间，是年轻人拍照打卡、City Walk的热门地。', cost: '免费' },
+  '九街': { addr: '重庆市江北区洋河路（观音桥九街）', feat: '重庆最负盛名的夜生活地标，素有"不夜九街"之称，聚集酒吧、Livehouse、餐吧、深夜食堂等多元夜间业态，入夜后霓虹闪烁、人声鼎沸，是感受山城夜文化的核心场所。', cost: '免费（餐饮娱乐消费另计）' },
+  '鸿恩寺森林公园': { addr: '重庆市江北区红石路鸿恩寺片区', feat: '位于江北区鸿恩寺山，地处重庆主城制高点之一，园内建有标志性仿古楼阁鸿恩阁，登阁可远眺渝中半岛与两江四岸的城市天际线，夜景尤为壮观；公园植被繁茂、步道与健身设施完善，四季皆有景可赏，是市民登高观景、休闲健身的热门免费城市公园。', cost: '免费' },
+  '重庆动物园': { addr: '重庆市九龙坡区西郊一村1号（杨家坪）', feat: '重庆规模最大的城市动物园，以憨态可掬的大熊猫最具人气，还有金丝猴、华南虎、长颈鹿、大象等珍稀动物，兼具科普教育与休闲游乐功能，适合亲子家庭游玩。', cost: '成人票约25元/人（以官方公告为准）' },
+  '重庆大学': { addr: '重庆市沙坪坝区沙正街174号（A区/沙坪坝校区）', feat: '教育部直属全国重点大学、国家"双一流"建设高校，创建于1929年。沙坪坝校区坐落于嘉陵江畔，民主湖、工学院大楼等老建筑承载着近百年办学历史与"沙磁文化区"记忆。', cost: '免费（需提前预约进校）' },
+  '天生三桥（天坑三桥）': { addr: '重庆市武隆区仙女山街道境内，距武隆城区约20公里', feat: '武隆喀斯特世界自然遗产核心景区、国家5A级旅游区。天龙桥、青龙桥、黑龙桥三座巨型天然石拱桥呈"品"字形横跨天坑，是世界规模最大的天生桥群之一；坑底天福官驿是《满城尽带黄金甲》唯一外景地，《变形金刚4》也曾在此取景。', cost: '旺季155元/淡季125元（约3-10月为旺季，含中转车与观光电梯）' },
+  '龙水峡地缝': { addr: '重庆市武隆区仙女山街道，天生三桥景区旁', feat: '"天坑地缝"喀斯特地貌的经典代表，被誉为"地球最美裂痕"。地缝全长约5公里，峡谷深200-500米、最窄处仅数米，栈道沿壁蜿蜒，银河飞瀑、暗河清泉遍布，夏季避暑与探秘地质奇观的绝佳去处。', cost: '旺季105元/淡季85元（含中转车与观光电梯）' },
+  '仙女山国家森林公园': { addr: '重庆市武隆区仙女山街道北部，仙女山机场附近', feat: '国家5A级景区，平均海拔约1900米，被誉为"东方瑞士""南国第一牧场"。高山草原与原始森林数十万亩，夏季平均气温约20℃为避暑胜地，冬季为重庆最大高山滑雪场之一，可乘观光小火车穿行林海草原。', cost: '门票60元/人（观光小火车25元/人，滑雪等另计）' },
+  '芙蓉洞': { addr: '重庆市武隆区江口镇芙蓉江畔', feat: '中国唯一的世界自然遗产洞穴，国家5A级景区。洞体长约2700米，形成于120多万年前，洞内钟乳石琳琅满目，珊瑚瑶池、巨幕飞瀑、石花等景观美轮美奂，被誉为"地下艺术宫殿"。', cost: '旺季120元/淡季65元（索道70元另计）' },
+  '芙蓉江大峡谷（芙蓉江风景区）': { addr: '重庆市武隆区江口镇芙蓉江段', feat: '芙蓉江是乌江重要支流，武隆段峡谷风光雄奇秀美，两岸绝壁千仞、江面碧绿似玉。乘游船穿行峡谷可饱览"高峡平湖"风光，还可体验过江速滑与漂流，被誉为"乌江画廊"中最惊艳的一段。', cost: '游船约120元/人（船票约100元+缆车20元）' },
+  '印象武隆实景演出': { addr: '重庆市武隆区仙女山街道桃园大峡谷（近天生三桥）', feat: '张艺谋"印象铁三角"执导的大型山水实景演出，以桃园大峡谷百米绝壁为天然舞台，以国家级非遗"川江号子"为主线，融入纤夫拉纤、哭嫁等巴渝民俗，声光电与山水实景交融、气势震撼。', cost: '普通席238元/尊宾席338元/VIP席588元/总统席888元（以场次为准）' },
+  '白马山天尺坪（天尺情缘景区）': { addr: '重庆市武隆区西南部白马山天尺坪', feat: '位于白马山之巅、海拔逾千米，因"仙女与白马"爱情传说得名。网红项目"飞天之吻"将两台巨型雕塑悬于悬崖边缘旋转对望，另有8D影院、玻璃跳台与贡茶园，云海日出、茶园星空景色绝佳。', cost: '旺季60元/淡季50元（观光车30元/人）' },
+  '天坑寨子景区（中石院天坑）': { addr: '重庆市武隆区仙女山街道明星村中石院天坑', feat: '坐落于罕见的"心形"天坑坑底，被称为"大地之心"，是《爸爸去哪儿》等综艺取景地。坑内保留土家族、苗族原生态村寨，可体验打糍粑、织锦等民俗活动，感受"天坑人家"生活。', cost: '门票约90元（以景区现场公示为准）' },
+  '懒坝国际禅境艺术度假区（懒坝LAB）': { addr: '重庆市武隆区仙女山街道仙女山度假区内', feat: '国内知名的国际艺术度假区，每两年举办"懒坝国际大地艺术季"，邀请全球艺术家在森林、草地与崖壁间创作大地艺术；园区有美术馆、竹音剧院、心跳博物馆与粉黛乱子草花海，秋季如粉色云雾铺满山坡。', cost: '门票100元（学生、军人等半价50元）' },
+  '大足石刻·宝顶山': { addr: '重庆市大足区宝顶镇宝顶山', feat: '1999年列入世界文化遗产，大佛湾约500米长的崖壁上密布上万尊宋代摩崖造像，以"六道轮回""千手观音""华严三圣"闻名，是中国石窟艺术最后一座丰碑，千手观音金碧辉煌，配套大足石刻博物馆。', cost: '门票115元/人（旺季，以实际情况为准）' },
+  '大足石刻·北山': { addr: '重庆市大足区龙岗街道北山路', feat: '开凿于晚唐至南宋，现存造像近万尊，以观音造像最为精美，被誉为"观音造像的陈列馆"，"媚态观音"是宋代石刻代表作；北山更显清幽精致，可与大足石刻博物馆一并游览。', cost: '门票90元/人（以实际情况为准）' },
+  '丰都鬼城': { addr: '重庆市丰都县名山街道长江北岸', feat: '中国最著名的"鬼城"，以阴曹地府文化闻名，有2000余年历史。景区有奈何桥、鬼门关、黄泉路、天子殿、十八层地狱等景点，通过雕塑与民俗传说展现中国传统鬼神观念，近年还打造"夜游鬼城"项目。', cost: '门票约100元/人（索道/观光车往返约35元另计）' },
+  '奉节白帝城·瞿塘峡': { addr: '重庆市奉节县白帝镇', feat: '李白"朝辞白帝彩云间"即写于此。白帝城是三国历史文化名城、刘备托孤之地，夔门是10元人民币背面图案取景地；瞿塘峡为长江三峡第一峡，"夔门天下雄"，是三峡旅游的经典起点。', cost: '门票约100元/人（旺季，淡季约90元）' },
+  '巫山小三峡·小小三峡': { addr: '重庆市巫山县大宁河（巫山县城码头乘船）', feat: '国家5A级景区，是大宁河龙门峡、巴雾峡、滴翠峡三段峡谷总称，以"山奇、水秀、洞幽、石美"著称。小小三峡更袖珍幽静，需换乘小木船；全程乘船约4小时，深秋红叶季尤为动人。', cost: '小三峡游船约120元/人（联票以景区实际为准）' },
+  '三峡之巅': { addr: '重庆市奉节县赤甲山', feat: '位于赤甲山海拔1388米，是长江三峡物理形态的最高点，也是俯瞰瞿塘峡与夔门全景的最佳观景平台。峰顶玻璃观景台云雾缭绕时宛如仙境，设有观光索道与徒步栈道，深秋红叶季景色最为壮观。', cost: '门票约100元/人，索道/观光车另计' },
+  '云阳龙缸景区': { addr: '重庆市云阳县清水土家族乡', feat: '国家5A级景区、世界地质公园核心区，龙缸天坑直径约350米、深约335米，被誉为"天下第一缸"。拥有世界最长悬挑玻璃廊桥"云端廊桥"（悬挑26.68米），另有龙洞、悬崖秋千等体验项目。', cost: '门票100元/人（旺季），观光车另计' },
+  '万州大瀑布': { addr: '重庆市万州区甘宁镇', feat: '又名青龙瀑布，宽约115米、高约64.5米，是亚洲单级落差最大的瀑布之一，素有"亚洲第一瀑"之称。可穿行水帘洞从瀑布背面观景，晴天可见彩虹，距万州城区约40分钟车程。', cost: '门票约98-100元/人（以实际情况为准）' },
+  '开州汉丰湖': { addr: '重庆市开州区城区', feat: '三峡库区蓄水后形成的人工湖泊，水域面积约15平方公里，为国家4A级景区、国家湿地公园和国家级旅游度假区。湖水碧波荡漾、城湖相依，尤以秋冬水中彩林闻名，可沿湖漫步、骑行或乘游船。', cost: '免费（游船另计）' },
+  '云阳张飞庙': { addr: '重庆市云阳县盘龙街道长江南岸', feat: '为纪念三国名将张飞而建的祠庙，始建于1700多年前，因三峡工程整体搬迁至新县城对岸。保存大量历代名家书画碑刻，素有"文藻胜地""巴蜀一胜境"之誉，"江上风清"匾额犹存。', cost: '门票约40元/人（以实际情况为准）' },
+  '酉阳桃花源景区': { addr: '重庆市酉阳土家族苗族自治县城近郊', feat: '国家5A级景区，因陶渊明《桃花源记》被誉为"世外桃源"原型地。核心景观大酉洞天然石洞与太古洞巨型溶洞相连，洞外桃花溪、秦人古村与田园风光重现"芳草鲜美、落英缤纷"意境，春季桃花盛开时最宜游览。', cost: '门票约100元/人（含太古洞，观光车另收费）' },
+  '龚滩古镇': { addr: '重庆市酉阳县龚滩镇（乌江与阿蓬江交汇处上游）', feat: '被誉为"巴蜀第一镇"，是"千里乌江、百里画廊"的核心起点。古镇依绝壁而建，吊脚楼群悬于乌江之上，被称为"绝壁上的音符"；乘乌江画廊游船可饱览峡谷风光与古镇全景，夕阳下的吊脚楼与江面倒影尤为震撼。', cost: '免费（乌江画廊游船约30-150元/段）' },
+  '濯水古镇': { addr: '重庆市黔江区濯水镇（阿蓬江畔，距黔江城区约30公里）', feat: '国家5A级景区濯水景区的核心，拥有世界最长风雨廊桥——濯水风雨廊桥（全长约658米），桥上塔、亭、楼错落；老街吊脚楼、石板路与土家苗族风情浓郁，廊桥夜景与晨雾是最大看点。', cost: '免费（风雨廊桥免费开放）' },
+  '黔江蒲花暗河': { addr: '重庆市黔江区濯水镇蒲花社区（濯水古镇西南约3公里）', feat: '典型的喀斯特地下暗河奇观，乘船进入暗河峡谷，两岸钟乳石千姿百态，头顶"天生三桥"横跨河谷，形成桥上有天、天中有洞的罕见地质景观，被称为"渝东南地下秘境"。', cost: '约100元/人（含暗河游船与观光车）' },
+  '彭水阿依河': { addr: '重庆市彭水苗族土家族自治县城南侧', feat: '国家5A级景区，"阿依"在苗语中意为"美丽的姑娘"。峡谷幽深、溪水碧绿，夏季漂流为最大亮点，全程约4小时，被誉为"重庆漂流天花板"；还有苗寨歌舞与土家美食。', cost: '门票约90元/人（漂流等体验项目另收费）' },
+  '南川金佛山': { addr: '重庆市南川区南部（主峰海拔2238米）', feat: '世界自然遗产"中国南方喀斯特"组成部分、国家5A级景区。典型喀斯特桌山，绝壁栈道悬挂于千米崖壁之上，"金龟朝阳"、古佛洞等奇观壮丽；春赏万亩杜鹃、夏避暑、秋观红叶、冬赏南国雪景，四季皆有看点。', cost: '门票旺季约75元、淡季约55元；索道往返约100元' },
+  '江津四面山': { addr: '重庆市江津区南部四面山镇（距主城约130公里）', feat: '国家5A级景区，森林覆盖率超95%，以丹霞地貌与瀑布群闻名，有"千瀑之乡"之称。核心景观望乡台瀑布落差152米，被誉为"华夏第一高瀑"；还是"爱情天梯"故事的所在地，可顺访中山古镇。', cost: '门票约90元/人（观光车另收费）' },
+  '中山古镇': { addr: '重庆市江津区中山镇（笋溪河畔、四面山北麓）', feat: '曾入选"中国最美小镇"。明清老街绵延约3公里，吊脚楼、青石板路、古码头保存完好，龙洞桥横跨笋溪河，烟熏豆腐、河水豆花等小吃地道；商业化程度低、原汁原味，适合慢游与摄影。', cost: '免费' },
+  '合川涞滩古镇': { addr: '重庆市合川区涞滩镇（渠江东岸，合川城区东北约30公里）', feat: '始建于宋代的千年古镇，以保存完好的古城堡式瓮城闻名，是"巴蜀古镇"中军事防御体系最完整的代表。镇内二佛寺石刻大佛高约12.5米，为全国禅宗石刻造像之最。', cost: '免费（二佛寺门票约30元）' },
+  '北碚缙云山': { addr: '重庆市北碚区缙云路27号（嘉陵江畔）', feat: '国家级自然保护区、佛教名山，素有"川东小峨眉"之称。缙云寺始建于南朝，黛湖碧波如镜；狮子峰、香炉峰可观日出云海，登顶可俯瞰嘉陵江与北碚城区全景，是市民徒步健身、寻幽访古的好去处。', cost: '免费（索道另收费）' },
+  '珮姐老火锅（较场口总店）': { addr: '渝中区较场口民生路（近轻轨1/2号线较场口站）', price: '80-120 元', dish: '贡菜丸子、屠场鲜毛肚、嫩鸭血', feat: '重庆火锅十大品牌、必吃榜常客，九宫格牛油锅底麻辣鲜香，老式市井风，饭点排队严重' },
+  '周师兄大刀腰片火锅（解放碑总店）': { addr: '渝中区解放碑中华路（近临江门地铁站）', price: '100-150 元', dish: '大刀腰片、屠场毛肚、嫩牛肉', feat: '多次入围黑珍珠餐厅指南，招牌大刀腰片薄而大、涮20秒蘸干油碟，环境明亮现代' },
+  '小天鹅火锅（洪崖洞店）': { addr: '渝中区嘉滨路88号洪崖洞景区内', price: '90-130 元', dish: '鸳鸯锅、鲜毛肚、鲜鹅肠', feat: '创办近40年的重庆老字号，洪崖洞内江景门店、吊脚楼风情，据称首创鸳鸯锅' },
+  '刘一手火锅（解放碑好吃街旗舰店）': { addr: '渝中区解放碑八一路183号四楼', price: '80-110 元', dish: '刘一手毛肚、嫩牛肉、虾滑', feat: '走出国门的重庆老牌连锁，位置方便、菜品丰富、性价比高' },
+  '楠火锅（四小区总店）': { addr: '南岸区南坪四小区（南城大道居民楼下）', price: '70-100 元', dish: '麻辣牛肉、九宫格锅底、招牌刨冰', feat: '藏在居民楼下的市井排队王，本地人夜宵首选，老式锑锅九宫格，建议错峰' },
+  '卤校长老火锅（观音桥直营店）': { addr: '江北区观音桥商圈洋河路（九街附近）', price: '60-90 元', dish: '卤猪蹄、卤肥肠、免费甜品', feat: '新派卤味火锅代表，卤菜可直吃可涮锅，甜品免费任取、人均亲民' },
+  '秦云老太婆摊摊面（万象城总店）': { addr: '九龙坡区谢家湾正街万象城旁（近轻轨2号线谢家湾站）', price: '10-20 元', dish: '干馏豌杂面、牛肉面、肥肠面', feat: '重庆小面名店，豌豆软糯、杂酱咸香，总店环境干净、出餐快' },
+  '板凳面庄（松石支路店）': { addr: '渝北区松石支路（龙溪街道，近松树桥轻轨站）', price: '10-20 元', dish: '牛肉面、肥肠面、豌杂面', feat: '渝北"四大神兽"面庄之一，保留路边板凳就餐形式，牛肉大块软烂' },
+  '花市豌杂面（民生路总店）': { addr: '渝中区解放碑民生路（花市口，近较场口地铁站）', price: '10-20 元', dish: '豌杂面、牛肉面、酸辣粉', feat: '解放碑人气豌杂面老店，豌豆绵密、肉酱浓香，店小桌少需拼桌' },
+  '好又来酸辣粉（八一路总店）': { addr: '渝中区解放碑八一路好吃街（八一广场旁）', price: '8-15 元', dish: '酸辣粉、杂酱酸辣粉', feat: '解放碑排队最凶的酸辣粉老店，露天档口现做现卖，站着吃也香' },
+  '吴童妹特色江湖菜（黄龙支路店）': { addr: '渝北区黄龙支路（黄泥磅片区，近轻轨黄泥磅站）', price: '60-90 元', dish: '水煮烧白、尖椒鸡', feat: '江湖菜人气馆子，大盘重口、极其下饭，环境市井热闹' },
+  '食色飞白（鎏嘉码头店）': { addr: '江北区北滨路鎏嘉码头（近刘家台）', price: '60-90 元', dish: '霸王蒸（粉蒸肉）、水煮鱼', feat: '江边人气江湖菜馆，霸王蒸分量夸张、软糯入味，临江环境适合聚餐' },
+  '曾老幺鱼庄（长滨路店）': { addr: '渝中区长滨路（防空洞老店，近东水门大桥）', price: '70-100 元', dish: '邮亭鲫鱼、香辣虾', feat: '开在防空洞里的老字号鱼庄，洞子就餐体验独特，麻辣鲜嫩' },
+  '纯阳老酒馆（七星岗店）': { addr: '渝中区七星岗金汤街（近地铁1号线七星岗站）', price: '60-90 元', dish: '辣子鸡、口水鸡、肝腰合炒', feat: '开了几十年的老字号川菜小酒馆，梯坎下的怀旧山城味，配自酿梅子酒' },
+  '顺风123（解放碑店）': { addr: '渝中区解放碑八一路八一广场（近八一路好吃街）', price: '70-100 元', dish: '沸腾鱼、辣子鸡、毛血旺', feat: '创立于1999年的本土老牌川菜连锁，出品稳定，适合家庭与宴请' },
+  '九村烤脑花（解放碑店）': { addr: '渝中区解放碑商圈（近八一路好吃街/较场口）', price: '60-100 元', dish: '烤脑花、烤苕皮、烤串', feat: '上过《天天向上》的烧烤人气王，烤脑花麻辣细嫩无腥味，营业至深夜' },
+  '如家派柏云酒店（解放碑洪崖洞店）': { addr: '渝中区邹容路144-155号邹容广场A座14楼', dist: '距洪崖洞约600米，步行约10分钟', price: '130-260元/晚', rating: '4.5', feat: '如家连锁经济型，近洪崖洞与解放碑，交通便利，适合预算型游客' },
+  '汉庭酒店（解放碑来福士店）': { addr: '渝中区陕西路63号盛隆商场5楼', dist: '距朝天门广场约500米，步行约8分钟', price: '150-300元/晚', rating: '4.6', feat: '紧邻来福士广场与朝天门码头，近地铁1号线小什字站' },
+  '重庆彩嘉酒店（解放碑洪崖洞店）': { addr: '渝中区民生路181号民生商厦A栋', dist: '距解放碑步行街约400米，步行约5分钟', price: '150-280元/晚', rating: '4.4', feat: '位置居中，步行可达解放碑、洪崖洞，适合自由行游客' },
+  '途悦·Z酒店（解放碑洪崖洞店）': { addr: '渝中区七星岗街道（近地铁1号线七星岗/较场口站）', dist: '距十八梯约1公里，步行约15分钟', price: '160-300元/晚', rating: '4.4', feat: '设计感平价酒店，近较场口、十八梯与长江索道' },
+  '重庆背包十年青年旅舍（解放碑店）': { addr: '渝中区马蹄街5号', dist: '距解放碑约800米，步行约10分钟', price: '45-280元/晚（床位/标间）', rating: '4.8', feat: '知名连锁青旅，公共空间大、氛围好，适合学生与背包客' },
+  '荣悦来酒店（解放碑洪崖洞店）': { addr: '渝中区较场口88号得意世界F3层', dist: '距十八梯约300米，步行约3分钟', price: '140-260元/晚', rating: '4.3', feat: '较场口商圈内，紧邻十八梯、解放碑，餐饮购物便利' },
+  '梵朴酒店（南滨路长嘉汇店）': { addr: '南岸区泰昌路68号长嘉汇SOHO3栋', dist: '与弹子石老街/长嘉汇相邻，步行约3分钟', price: '180-300元/晚', rating: '4.6', feat: '江景商圈酒店，观江便利，适合情侣与家庭' },
+  '江景印象酒店（南滨公园店）': { addr: '南岸区南滨路80号东原1891时光道A馆9栋', dist: '南滨路东原1891，步行1分钟到江边', price: '150-280元/晚', rating: '4.5', feat: '南滨路江景地段，近长江索道南站与龙门浩，夜景好' },
+  '景悦酒店（南滨路长江索道店）': { addr: '南岸区龙门浩街道涂山路4号2-8室', dist: '距龙门浩老街约500米，步行约8分钟', price: '130-260元/晚', rating: '4.4', feat: '近长江索道南站与龙门浩老街，过江游玩方便' },
+  '重庆明月朋酒店（南滨路下浩里店）': { addr: '南岸区上新街前进村275号', dist: '距龙门浩老街约700米，步行约10分钟', price: '140-270元/晚', rating: '4.4', feat: '南滨路平价连锁，近下浩里、龙门浩与长江索道' },
+  '非晚（南山一棵树店）': { addr: '南岸区黄桷垭镇真武山13号1层', dist: '距南山一棵树观景台约2公里，车程约5分钟', price: '200-300元/晚', rating: '4.6', feat: '南山山居民宿，环境清幽、看夜景方便' },
+  '五瑞华廷花园酒店（南山店）': { addr: '南岸区南山路35号附17号', dist: '距南山一棵树约2公里，车程约5-8分钟', price: '160-290元/晚', rating: '4.3', feat: '南山半山花园式酒店，近一棵树与黄桷垭老街' },
+  '如家精选酒店（观音桥步行街锦龙支路店）': { addr: '江北区观音桥锦龙支路（近观音桥地铁站）', dist: '距观音桥步行街约500米，步行约7分钟', price: '160-300元/晚', rating: '4.6', feat: '如家精选品质连锁，近观音桥商圈与地铁3号线' },
+  '汉庭酒店（观音桥九街店）': { addr: '江北区观音桥九街（近洋河路/北城天街）', dist: '位于九街商圈内，步行约3分钟', price: '140-280元/晚', rating: '4.5', feat: '紧邻九街夜生活区，近观音桥步行街' },
+  '三脚猫青年旅舍民宿（观音桥店）': { addr: '江北区观音桥商圈', dist: '距观音桥步行街约300米，步行约5分钟', price: '30-100元/晚（床位为主）', rating: '4.3', feat: '平价青旅民宿，适合学生与背包客，性价比极高' },
+  '重庆悦磁江景花园酒店（磁器口古镇店）': { addr: '沙坪坝区石井坡266号', dist: '距磁器口古镇约1.2公里，车程约5分钟', price: '150-300元/晚', rating: '4.6', feat: '磁器口旁江景花园酒店，带露台，近地铁1号线' },
+  '重庆沙磁时光酒店（磁器口古镇店）': { addr: '沙坪坝区沙滨路111号', dist: '距磁器口古镇约600米，步行约10分钟', price: '140-280元/晚', rating: '4.4', feat: '沙滨路江景酒店，去白公馆、渣滓洞方便' },
+  '重庆玺舍客栈（磁器口古镇店）': { addr: '沙坪坝区宝轮寺16号（古镇内）', dist: '位于磁器口古镇内，步行1分钟', price: '60-220元/晚（含床位/标间）', rating: '4.5', feat: '古镇内客栈，出门即老街，适合体验古镇风情' },
+  '重庆武隆途遇主题酒店': { addr: '武隆区仙女山镇游客接待中心正对面', dist: '距游客中心步行约1分钟；车程约15分钟到天生三桥', price: '120-260元/晚', rating: '4.5', feat: '游客中心对面，去天生三桥、仙女山方便，家庭房实惠' },
+  '云汐酒店（仙女山游客中心店）': { addr: '武隆区仙女山镇游客中心旁', dist: '距游客中心步行约3分钟', price: '130-280元/晚', rating: '4.6', feat: '游客中心旁平价酒店，适合赶早班进景区的游客' },
+  '仙女山芮峰酒店（游客接待中心店）': { addr: '武隆区仙女山镇游客接待中心附近', dist: '距印象武隆剧场约1.5公里，车程约5分钟', price: '150-300元/晚', rating: '4.4', feat: '度假型平价酒店，适合看《印象武隆》演出后入住' },
+  '武隆亲爱的客栈': { addr: '武隆区仙女山镇翠云路93号', dist: '距游客中心约1公里，车程约5分钟', price: '100-230元/晚', rating: '4.4', feat: '民宿型客栈，镇区位置安静，适合家庭与自驾' },
+  '安悦度假酒店（仙女山游客中心店）': { addr: '武隆区仙女山镇翠云路199号', dist: '距游客中心约1.5公里；到森林公园约20分钟车程', price: '120-260元/晚', rating: '4.3', feat: '度假型平价酒店，房间面积大，适合亲子家庭' },
+  '入山民宿（仙女山游客中心店）': { addr: '武隆区仙女山镇银杏大道30号夜宴步行街11栋', dist: '距印象武隆剧场约1公里，步行约15分钟', price: '100-240元/晚', rating: '4.5', feat: '夜宴步行街内民宿，餐饮配套多，性价比高' },
+};
+
+
+// WGS84 -> GCJ-02 坐标转换（国内底图使用火星坐标系，避免标注偏移）
+var PI = Math.PI;
+var GCJ_A = 6378245.0;
+var GCJ_EE = 0.00669342162296594323;
+function outOfChina(lat, lng) { return (lng < 72.004 || lng > 137.8347) || (lat < 0.8293 || lat > 55.8271); }
+function transformLat(x, y) {
+  var ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+  ret += (20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0 / 3.0;
+  ret += (20.0 * Math.sin(y * PI) + 40.0 * Math.sin(y / 3.0 * PI)) * 2.0 / 3.0;
+  ret += (160.0 * Math.sin(y / 12.0 * PI) + 320 * Math.sin(y * PI / 30.0)) * 2.0 / 3.0;
+  return ret;
+}
+function transformLng(x, y) {
+  var ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+  ret += (20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0 / 3.0;
+  ret += (20.0 * Math.sin(x * PI) + 40.0 * Math.sin(x / 3.0 * PI)) * 2.0 / 3.0;
+  ret += (150.0 * Math.sin(x / 12.0 * PI) + 300.0 * Math.sin(x / 30.0 * PI)) * 2.0 / 3.0;
+  return ret;
+}
+function wgs84ToGcj02(lat, lng) {
+  if (outOfChina(lat, lng)) return { lat: lat, lng: lng };
+  var dLat = transformLat(lng - 105.0, lat - 35.0);
+  var dLng = transformLng(lng - 105.0, lat - 35.0);
+  var radLat = lat / 180.0 * PI;
+  var magic = Math.sin(radLat);
+  magic = 1 - GCJ_EE * magic * magic;
+  var sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / ((GCJ_A * (1 - GCJ_EE)) / (magic * sqrtMagic) * PI);
+  dLng = (dLng * 180.0) / (GCJ_A / sqrtMagic * Math.cos(radLat) * PI);
+  return { lat: lat + dLat, lng: lng + dLng };
+}
+
+var map = new AMap.Map('map', {
+  zoom: 8,
+  center: [107.5, 29.95],
+  viewMode: '2D'
+});
+
+var infoWindow = new AMap.InfoWindow({ offset: new AMap.Pixel(0, -12) });
+
+var allMarkers = [];
+var groups = {};
+Object.keys(CATS).forEach(function (k) { groups[k] = []; });
+
+DATA.forEach(function (d, idx) {
+  var name = d[0], lat = d[1], lng = d[2], cat = d[3], info = d[4];
+  var gc = wgs84ToGcj02(lat, lng);
+  var marker = new AMap.Marker({
+    position: [gc.lng, gc.lat],
+    content: '<div style="width:12px;height:12px;border-radius:50%;background:' + CATS[cat].color + ';border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);"></div>',
+    offset: new AMap.Pixel(-8, -8),
+    title: name
+  });
+  marker.on('click', function () {
+    var pos = marker.getPosition();
+    var d = DETAIL[name] || {};
+    var html = '<div style="min-width:190px;max-width:270px;"><b>' + name + '</b><div style="font-size:12px;color:#888;margin-top:2px;">' + CATS[cat].label + '</div>';
+    if (d.addr) html += '<div style="font-size:12px;color:#666;margin-top:3px;">📍 ' + d.addr + '</div>';
+    if (d.cost) html += '<div style="font-size:12px;color:#c0392b;margin-top:2px;">💰 ' + d.cost + '</div>';
+    if (d.price) html += '<div style="font-size:12px;color:#c0392b;margin-top:2px;">💰 ' + d.price + '</div>';
+    if (d.dish) html += '<div style="font-size:12px;color:#666;margin-top:2px;">🍽 招牌：' + d.dish + '</div>';
+    if (d.rating) html += '<div style="font-size:12px;color:#666;margin-top:2px;">⭐ ' + d.rating + '</div>';
+    if (d.near) html += '<div style="font-size:12px;color:#666;margin-top:2px;">📍 近 ' + d.near + '</div>';
+    if (d.dist) html += '<div style="font-size:12px;color:#999;margin-top:1px;">距离：' + d.dist + '</div>';
+    if (d.feat) html += '<details style="margin-top:4px;"><summary style="font-size:12px;color:#4a90d9;cursor:pointer;">特色介绍（点击展开）</summary><div style="font-size:12px;color:#444;line-height:1.7;margin-top:4px;">' + d.feat + '</div></details>';
+    html += '<details style="margin-top:4px;"><summary style="font-size:12px;color:#4a90d9;cursor:pointer;">🔍 联网搜索（点击展开）</summary><div style="margin-top:3px;">' + searchChips(name) + '</div><div id="wikisnip" style="font-size:12px;color:#666;margin-top:4px;">正在查询百科…</div>';
+    html += '<div id="aisnip" style="margin-top:6px;border-top:1px dashed #eee;padding-top:4px;"><button class="btn" onclick="aiIntro(' + idx + ')">🤖 生成AI介绍</button><div id="aisnipText" style="font-size:12px;color:#444;line-height:1.7;margin-top:4px;"></div></div></details>';
+    html += '<div style="margin-top:6px;">' +
+      '<button class="btn" onclick="routeFrom(' + idx + ')">从这里出发</button> ' +
+      '<button class="btn" onclick="routeTo(' + idx + ')">到这里去</button> ' +
+      '<button class="btn" onclick="manualFix(' + idx + ')">单点校准</button></div></div>';
+    infoWindow.setContent(html);
+    infoWindow.open(map, [pos.lng, pos.lat]);
+    try { wikiSnip(name); } catch (e) {}
+  });
+  groups[cat].push(marker);
+  allMarkers.push(marker);
+  marker.setMap(map);
+});
+
+map.setFitView(allMarkers, false, [60, 60, 60, 60]);
+
+// 图例（左下角）
+var legendDom = document.createElement('div');
+legendDom.className = 'ctl';
+legendDom.style.cssText = 'left:8px;bottom:20px;padding:6px 10px;line-height:1.8;font-size:12px;';
+var lg = '<b>图例</b>';
+Object.keys(CATS).forEach(function (k) {
+  lg += '<div><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + CATS[k].color + ';margin-right:6px;"></i>' + CATS[k].label + '</div>';
+});
+legendDom.innerHTML = lg;
+map.getContainer().appendChild(legendDom);
+
+// 底图切换 + 图层开关（右上角，可收起）
+var ctrlDom = document.createElement('div');
+ctrlDom.className = 'ctl ctrl';
+ctrlDom.style.cssText = 'right:10px;top:56px;';
+var ch = '<div class="phead"><b>控制</b><span class="ptoggle" onclick="togglePanel()">收起 ▲</span></div>';
+ch += '<div class="pbody">';
+ch += '<b>底图</b><div class="grid2">';
+ch += '<label><input type="radio" name="bm" value="street" checked onchange="switchBase(this.value)"> 街道</label>';
+ch += '<label><input type="radio" name="bm" value="sat" onchange="switchBase(this.value)"> 卫星</label>';
+ch += '</div>';
+ch += '<b>显示图层</b><div class="grid2">';
+Object.keys(CATS).forEach(function (k) {
+  ch += '<label><input type="checkbox" checked onchange="toggleGroup(\'' + k + '\', this.checked)"> ' + CATS[k].label + '</label>';
+});
+ch += '<label><input type="checkbox" onchange="toggleSubway(this.checked)"> 地铁线</label>';
+ch += '</div>';
+ch += '<button class="btn" onclick="calibrateCoords()">校准坐标</button>';
+ch += '<button class="btn" onclick="recalibAll()">全部重校</button>';
+ch += '<button class="btn" onclick="resetCalib()">清空记录</button>';
+ch += '<button class="btn" onclick="locateMe()">📍 我的位置</button>';
+ch += '<button class="btn" onclick="showConfig()">⚙ 设置Key</button>';
+ch += '<div id="calibStatus" style="font-size:11px;color:#666;margin-top:4px;line-height:1.5;">点「校准坐标」用高德POI校正标点；「全部重校」忽略已保存重跑</div>';
+ch += '</div>';
+ctrlDom.innerHTML = ch;
+map.getContainer().appendChild(ctrlDom);
+function togglePanel() {
+  var pb = ctrlDom.querySelector('.pbody');
+  var pt = ctrlDom.querySelector('.ptoggle');
+  if (!pb) return;
+  if (pb.style.display === 'none') { pb.style.display = ''; pt.innerHTML = '收起 ▲'; }
+  else { pb.style.display = 'none'; pt.innerHTML = '展开 ▼'; }
+}
+
+var satLayer = new AMap.TileLayer.Satellite();
+var roadLayer = new AMap.TileLayer.RoadNet();
+var subwayLayer = null;
+var subwayOverlays = [];
+var SUBWAY_GEO_URL = ''; // 备用数据源：填重庆地铁 GeoJSON 直链（支持多个，用空格分隔，按顺序尝试）
+function toggleSubway(show) {
+  if (!show) { clearSubway(); return; }
+  if (!subwayLayer) {
+    try { subwayLayer = new AMap.TileLayer.Subway(); subwayLayer._ok = true; subwayLayer.setMap(map); }
+    catch (e) { subwayLayer = null; }
+  }
+  if (subwayLayer && subwayLayer._ok) return;
+  if (subwayOverlays.length) { subwayOverlays.forEach(function (o) { o.setMap(map); }); return; }
+  if (!SUBWAY_GEO_URL) {
+    showCalibMsg('当前高德版本无独立地铁图层；放大地图（12级以上）时街道底图自带地铁线路显示。<br>如需叠加彩色地铁线：在代码 SUBWAY_GEO_URL 处填入可访问的重庆地铁 GeoJSON 直链（支持多个URL，空格分隔，按顺序尝试）。');
+    return;
+  }
+  var urls = SUBWAY_GEO_URL.trim().split(/\s+/);
+  var attemptUrl = function (i) {
+    if (i >= urls.length) { showCalibMsg('地铁线路数据加载失败（已尝试 ' + urls.length + ' 个数据源）。'); return; }
+    fetch(urls[i]).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); }).then(function (gj) {
+      drawSubway(gj);
+      showCalibMsg('已绘制地铁线路 ' + subwayOverlays.length + ' 个要素（GeoJSON）。');
+    }).catch(function () { attemptUrl(i + 1); });
+  };
+  attemptUrl(0);
+}
+function clearSubway() {
+  if (subwayLayer && subwayLayer._ok) subwayLayer.setMap(null);
+  subwayOverlays.forEach(function (o) { o.setMap(null); });
+}
+function drawSubway(gj) {
+  var lines = gj.features || [];
+  var palette = ['#e74c3c', '#f39c12', '#27ae60', '#2980b9', '#8e44ad', '#16a085', '#e84393', '#c0392b', '#2c3e50', '#d35400'];
+  var li = 0;
+  lines.forEach(function (f) {
+    var geo = f.geometry;
+    if (!geo) return;
+    if (geo.type === 'LineString' || geo.type === 'MultiLineString') {
+      var color = (f.properties && (f.properties.colour || f.properties.color)) || palette[li++ % palette.length];
+      var paths = geo.type === 'LineString' ? [geo.coordinates] : geo.coordinates;
+      paths.forEach(function (coords) {
+        var path = coords.map(function (c) { return [c[1], c[0]]; });
+        var pl = new AMap.Polyline({ path: path, strokeColor: color, strokeWeight: 4, strokeOpacity: 0.85 });
+        pl.setMap(map);
+        subwayOverlays.push(pl);
+      });
+    } else if (geo.type === 'Point') {
+      var st = new AMap.CircleMarker({
+        center: [geo.coordinates[1], geo.coordinates[0]],
+        radius: 5, fillColor: '#fff', strokeColor: '#333', strokeWeight: 1
+      });
+      st.setMap(map);
+      subwayOverlays.push(st);
+    }
+  });
+}
+function showCalibMsg(msg) {
+  var s = document.getElementById('calibStatus');
+  if (!s) return;
+  s.style.display = 'block';
+  s.innerHTML = msg + '<br><span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="hideCalib()">[关闭提示]</span>';
+}
+function switchBase(v) {
+  if (v === 'sat') {
+    satLayer.setMap(map);
+    roadLayer.setMap(map);
+  } else {
+    satLayer.setMap(null);
+    roadLayer.setMap(null);
+  }
+}
+function toggleGroup(k, show) {
+  groups[k].forEach(function (m) { m.setMap(show ? map : null); });
+}
+
+// ================= 地点搜索（本站标记 + 高德 POI） =================
+var POINTS = DATA.map(function (d) {
+  var gc = wgs84ToGcj02(d[1], d[2]);
+  return { name: d[0], lng: gc.lng, lat: gc.lat, cat: d[3], info: d[4] };
+});
+// 应用上次校准并已保存的高德 POI 坐标
+(function () {
+  try {
+    var saved = JSON.parse(localStorage.getItem('cqCalib') || '{}');
+    DATA.forEach(function (d, i) {
+      var c = saved[d[0]];
+      if (c && allMarkers[i]) {
+        allMarkers[i].setPosition([c.lng, c.lat]);
+        POINTS[i].lng = c.lng;
+        POINTS[i].lat = c.lat;
+      }
+    });
+  } catch (e) {}
+})();
+function findPoint(kw) {
+  kw = (kw || '').trim();
+  if (!kw) return null;
+  var hit = null, best = 0;
+  POINTS.forEach(function (p) {
+    if (p.name.indexOf(kw) >= 0 && kw.length > best) { best = kw.length; hit = p; }
+  });
+  return hit;
+}
+function showInfo(name, cat, info, lng, lat) {
+  var d = DETAIL[name] || {};
+  var html = '<div style="min-width:170px;"><b>' + name + '</b><div style="font-size:12px;color:#666;margin:4px 0;line-height:1.6;">' + (cat || '') + '<br>' + (d.feat || info || '') + '</div>' + searchChips(name) + '</div>';
+  infoWindow.setContent(html);
+  infoWindow.open(map, [lng, lat]);
+}
+function q(s) { return encodeURIComponent(s); }
+function searchChips(name) {
+  var wd = '重庆 ' + name;
+  var links = [
+    ['百度', 'https://www.baidu.com/s?wd=' + q(wd)],
+    ['Bing', 'https://www.bing.com/search?q=' + q(wd)],
+    ['小红书', 'https://www.xiaohongshu.com/search_result?keyword=' + q(name)],
+    ['知乎', 'https://www.zhihu.com/search?type=content&q=' + q(wd)],
+    ['B站', 'https://search.bilibili.com/all?keyword=' + q(name)],
+    ['抖音', 'https://www.douyin.com/search/' + q(name)]
+  ];
+  var h = '';
+  links.forEach(function (l) {
+    h += '<a class="schip" target="_blank" rel="noopener" href="' + l[1] + '">' + l[0] + '</a>';
+  });
+  return h;
+}
+function wikiSnip(name) {
+  setTimeout(function () {
+    var el = map.getContainer().querySelector('#wikisnip');
+    if (!el) return;
+    fetch('https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + q('重庆' + name) + '&srlimit=1&format=json&origin=*')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var s = d.query && d.query.search && d.query.search[0];
+        if (s) {
+          el.innerHTML = '📖 维基百科：<a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/' + encodeURIComponent(s.title) + '">' + s.title + '</a><br>' + s.snippet.replace(/<[^>]+>/g, '') + '…';
+        } else {
+          el.innerHTML = '维基暂无该词条，可用上方链接搜索。';
+        }
+      })
+      .catch(function () {
+        el.innerHTML = '百科在线查询失败（网络/代理原因），可用上方链接搜索。';
+      });
+  }, 120);
+}
+
+// ================= AI 介绍（流式输出，OpenAI 兼容接口） =================
+var aiBusy = false;
+var aiAbort = null;
+function aiIntro(idx) {
+  var d0 = DATA[idx];
+  var name = d0[0], cat = d0[3];
+  var el = map.getContainer().querySelector('#aisnipText');
+  var btn = map.getContainer().querySelector('#aisnip .btn');
+  if (!el) return;
+  if (aiBusy) {
+    if (aiAbort) { aiAbort.abort(); aiAbort = null; }
+    aiBusy = false;
+    if (btn) btn.innerHTML = '🤖 重新生成';
+    el.innerHTML += '<br><span style="color:#999;">（已停止）</span>';
+    return;
+  }
+  if (!getSavedAiKey()) {
+    el.innerHTML = '<span style="color:#c0392b;">未配置 AI Key：请在 ⚙设置Key 中填写 API地址 / Key / 模型（OpenAI 兼容接口）。</span>';
+    return;
+  }
+  aiBusy = true;
+  if (btn) btn.innerHTML = '■ 停止生成';
+  el.innerHTML = '<span style="color:#999;">生成中…</span>';
+  var d = DETAIL[name] || {};
+  var system = '你是重庆本地旅游助理。用简体中文为游客生成一段简洁实用的游玩介绍（150-250字），必须包含：①一句话定位；②1-2个最大亮点；③门票/人均与建议游玩时长；④交通与位置提示；⑤1-2条实用提醒（避坑/最佳时间/注意事项）。用短句与要点，语气亲切；不得编造事实，资料未提到的信息标注"以现场为准"。';
+  var user = '地点：' + name +
+    '\n类别：' + (CATS[cat] ? CATS[cat].label : '') +
+    '\n地址：' + (d.addr || '未知') +
+    '\n消费：' + (d.cost || d.price || '未知') +
+    '\n特色资料：' + (d.feat || '（无）') +
+    '\n请按系统要求输出介绍。';
+  aiAbort = new AbortController();
+  var acc = '';
+  fetchAiStream([{ role: 'system', content: system }, { role: 'user', content: user }],
+    function (delta) {
+      acc += delta;
+      el.innerHTML = md2html(acc);
+    },
+    function () {
+      aiBusy = false; aiAbort = null;
+      if (btn) btn.innerHTML = '🤔 重新生成';
+    },
+    function (err) {
+      aiBusy = false; aiAbort = null;
+      if (btn) btn.innerHTML = '🤖 生成AI介绍';
+      el.innerHTML = '<span style="color:#c0392b;">AI 调用失败：' + err + '<br>请检查 API地址/Key/模型，且接口需支持流式并允许浏览器跨域（CORS）。</span>';
+    },
+    aiAbort.signal);
+}
+function fetchAiStream(messages, onDelta, onDone, onError, signal) {
+  var base = getSavedAiBase() || 'https://api.openai.com/v1';
+  var key = getSavedAiKey();
+  var model = getSavedAiModel();
+  fetch(base.replace(/\/+$/, '') + '/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({ model: model, messages: messages, stream: true, temperature: 0.6 }),
+    signal: signal
+  }).then(function (res) {
+    if (!res.ok) {
+      return res.text().then(function (t) { throw new Error('HTTP ' + res.status + ' ' + t.slice(0, 160)); });
+    }
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder('utf-8');
+    var buf = '';
+    function pump() {
+      return reader.read().then(function (r) {
+        if (r.done) { onDone && onDone(); return; }
+        buf += decoder.decode(r.value, { stream: true });
+        var lines = buf.split('\n');
+        buf = lines.pop();
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim();
+          if (line.indexOf('data:') !== 0) continue;
+          var data = line.slice(5).trim();
+          if (data === '[DONE]') { onDone && onDone(); return; }
+          try {
+            var j = JSON.parse(data);
+            var delta = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
+            if (delta) onDelta(delta);
+          } catch (e) {}
+        }
+        return pump();
+      }).catch(function (err) {
+        if (err && err.name === 'AbortError') { onDone && onDone(); return; }
+        onError && onError(err && err.message ? err.message : String(err));
+      });
+    }
+    return pump();
+  }).catch(function (err) {
+    if (err && err.name === 'AbortError') { onDone && onDone(); return; }
+    onError && onError(err && err.message ? err.message : String(err));
+  });
+}
+function md2html(md) {
+  return String(md)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/^#+\s?(.*)$/gm, '<b>$1</b>')
+    .replace(/^\s*[-*]\s+/gm, '• ')
+    .replace(/\n{2,}/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+}
+var searchInput = document.getElementById('searchInput');
+var suggestBox = document.getElementById('suggest');
+var suggestTimer = null;
+function closeSuggest() { suggestBox.style.display = 'none'; }
+function openSuggest(html) { suggestBox.innerHTML = html; suggestBox.style.display = 'block'; }
+function flyToPoi(name, addr, lng, lat) {
+  map.setZoomAndCenter(16, [lng, lat]);
+  showInfo(name, '高德 POI', addr || '', lng, lat);
+}
+// 回车：优先匹配地图内（本站）标记，其次高德 POI
+function doKeywordSearch(kw) {
+  var hit = findPoint(kw);
+  if (hit) {
+    map.setZoomAndCenter(16, [hit.lng, hit.lat]);
+    showInfo(hit.name, CATS[hit.cat].label, hit.info, hit.lng, hit.lat);
+    return;
+  }
+  var ps = new AMap.PlaceSearch({ city: '重庆', pageSize: 1 });
+  ps.search(kw, function (status, result) {
+    if (status === 'complete' && result.poiList && result.poiList.pois.length) {
+      var p = result.poiList.pois[0];
+      flyToPoi(p.name, p.address, p.location.lng, p.location.lat);
+    } else {
+      alert('未找到地点：' + kw);
+    }
+  });
+}
+searchInput.addEventListener('input', function () {
+  var v = this.value.trim();
+  if (!v) { closeSuggest(); return; }
+  clearTimeout(suggestTimer);
+  suggestTimer = setTimeout(function () {
+    var html = '';
+    var my = [];
+    POINTS.forEach(function (p, i) {
+      if (p.name.indexOf(v) >= 0) my.push({ i: i, p: p });
+    });
+    my.slice(0, 8).forEach(function (m) {
+      html += '<div class="sug-item" data-kind="marker" data-i="' + m.i + '"><span class="sug-tag my">本站</span>' + m.p.name + '<span class="sug-cat">' + CATS[m.p.cat].label + '</span></div>';
+    });
+    if (my.length) html += '<div class="sug-sep">— 高德 POI —</div>';
+    var ps = new AMap.PlaceSearch({ city: '重庆', pageSize: 4 });
+    ps.search(v, function (status, result) {
+      if (status === 'complete' && result.poiList) {
+        result.poiList.pois.forEach(function (p) {
+          html += '<div class="sug-item" data-kind="poi" data-name="' + p.name.replace(/"/g, '&quot;') + '" data-addr="' + (p.address || '').replace(/"/g, '&quot;') + '" data-lng="' + p.location.lng + '" data-lat="' + p.location.lat + '"><span class="sug-tag poi">POI</span>' + p.name + '<span class="sug-cat">' + (p.address || '') + '</span></div>';
+        });
+      }
+      if (html) openSuggest(html); else closeSuggest();
+    });
+  }, 300);
+});
+suggestBox.addEventListener('click', function (e) {
+  var el = e.target && e.target.closest ? e.target.closest('.sug-item') : null;
+  if (!el) return;
+  var kind = el.getAttribute('data-kind');
+  if (kind === 'marker') {
+    var m = POINTS[parseInt(el.getAttribute('data-i'), 10)];
+    map.setZoomAndCenter(16, [m.lng, m.lat]);
+    showInfo(m.name, CATS[m.cat].label, m.info, m.lng, m.lat);
+  } else {
+    flyToPoi(el.getAttribute('data-name'), el.getAttribute('data-addr'), parseFloat(el.getAttribute('data-lng')), parseFloat(el.getAttribute('data-lat')));
+  }
+  closeSuggest();
+});
+searchInput.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') { closeSuggest(); return; }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  var v = this.value.trim();
+  if (!v) return;
+  closeSuggest();
+  doKeywordSearch(v);
+});
+document.addEventListener('click', function (e) {
+  if (!e.target.closest || !e.target.closest('#searchBox')) closeSuggest();
+});
+
+// ================= 路线规划（驾车/公交/步行，无需定位） =================
+var fromPt = null, toPt = null, curPlanner = null;
+function routeFrom(i) {
+  fromPt = POINTS[i];
+  document.getElementById('fromInput').value = fromPt.name;
+  document.getElementById('routePanel').style.display = 'block';
+}
+function routeTo(i) {
+  toPt = POINTS[i];
+  document.getElementById('toInput').value = toPt.name;
+  document.getElementById('routePanel').style.display = 'block';
+}
+
+// ================= 手动修正标点位置（点击地图放置） =================
+var manualTarget = -1;
+var manualHintEl = document.getElementById('manualHint');
+function manualFix(idx) {
+  var name = DATA[idx][0];
+  var statusEl = document.getElementById('calibStatus');
+  infoWindow.close();
+  if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = '正在用高德POI校准「' + name + '」…'; }
+  calibOne(name, function (p) {
+    if (p) {
+      allMarkers[idx].setPosition([p.location.lng, p.location.lat]);
+      POINTS[idx].lng = p.location.lng;
+      POINTS[idx].lat = p.location.lat;
+      try {
+        var saved = JSON.parse(localStorage.getItem('cqCalib') || '{}');
+        saved[name] = { lng: p.location.lng, lat: p.location.lat };
+        localStorage.setItem('cqCalib', JSON.stringify(saved));
+      } catch (err) {}
+      if (statusEl) statusEl.innerHTML = '「' + name + '」已用高德POI校准完成。<br><span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="hideCalib()">[关闭提示]</span>';
+    } else {
+      if (statusEl) statusEl.innerHTML = '「' + name + '」未在高德POI中找到，可点击地图手动放置（Esc取消）。<br><span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="hideCalib()">[关闭提示]</span>';
+      if (manualTarget >= 0) { manualTarget = -1; manualHintEl.style.display = 'none'; map.off('click', onManualClick); }
+      manualTarget = idx;
+      manualHintEl.innerHTML = '点击地图为「' + name + '」设置新位置（按 Esc 取消）';
+      manualHintEl.style.display = 'block';
+      map.on('click', onManualClick);
+    }
+  });
+}
+function onManualClick(e) {
+  if (manualTarget < 0) return;
+  var idx = manualTarget;
+  var pos = [e.lnglat.lng, e.lnglat.lat];
+  allMarkers[idx].setPosition(pos);
+  POINTS[idx].lng = pos[0];
+  POINTS[idx].lat = pos[1];
+  try {
+    var saved = JSON.parse(localStorage.getItem('cqCalib') || '{}');
+    saved[DATA[idx][0]] = { lng: pos[0], lat: pos[1] };
+    localStorage.setItem('cqCalib', JSON.stringify(saved));
+  } catch (err) {}
+  manualTarget = -1;
+  manualHintEl.style.display = 'none';
+  map.off('click', onManualClick);
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && manualTarget >= 0) {
+    manualTarget = -1;
+    manualHintEl.style.display = 'none';
+    map.off('click', onManualClick);
+  }
+});
+function closeRoute() {
+  document.getElementById('routePanel').style.display = 'none';
+  clearRoute();
+}
+function clearRoute() {
+  if (curPlanner && curPlanner.clear) { try { curPlanner.clear(); } catch (e) {} }
+  curPlanner = null;
+}
+function resolvePoint(inputEl, fallback) {
+  var v = (inputEl.value || '').trim();
+  if (!v) return new Promise(function (r) { r(fallback || null); });
+  if (v === '我的位置' && myPos) return new Promise(function (r) { r(myPos); });
+  var hit = findPoint(v);
+  if (hit) return new Promise(function (r) { r(hit); });
+  return new Promise(function (resolve) {
+    var ps = new AMap.PlaceSearch({ city: '重庆', pageSize: 1 });
+    ps.search(v, function (status, result) {
+      if (status === 'complete' && result.poiList && result.poiList.pois.length) {
+        var p = result.poiList.pois[0];
+        resolve({ name: p.name, lng: p.location.lng, lat: p.location.lat });
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+function doRoute() {
+  clearRoute();
+  var mode = document.querySelector('input[name="rmode"]:checked').value;
+  var out = document.getElementById('routeResult');
+  Promise.all([
+    resolvePoint(document.getElementById('fromInput'), fromPt),
+    resolvePoint(document.getElementById('toInput'), toPt)
+  ]).then(function (rs) {
+    var o = rs[0], d = rs[1];
+    if (!o || !d) {
+      out.innerHTML = '<span style="color:#c0392b;">起点或终点无法识别，请填写有效地点，或先点击地图上的标记</span>';
+      return;
+    }
+    var plan;
+    if (mode === 'driving') {
+      plan = new AMap.Driving({ map: map, policy: AMap.DrivingPolicy.LEAST_TIME });
+    } else if (mode === 'transit' || mode === 'subway') {
+      plan = new AMap.Transfer({ map: map, city: '重庆', policy: mode === 'subway' ? AMap.TransferPolicy.LEAST_TIME : undefined });
+    } else {
+      plan = new AMap.Walking({ map: map });
+    }
+    curPlanner = plan;
+    plan.search([o.lng, o.lat], [d.lng, d.lat], function (status, result) {
+      if (status !== 'complete' || !result) {
+        out.innerHTML = '<span style="color:#c0392b;">未找到可行路线（或 Key 权限不足）</span>';
+        return;
+      }
+      var routes = result.routes || (result.plans ? result.plans : []);
+      // 地铁/轻轨模式：优先选择包含地铁(SUBWAY)段最多的方案
+      if (mode === 'subway' && result.plans && result.plans.length) {
+        var best = result.plans[0], bestCnt = -1;
+        result.plans.forEach(function (pl) {
+          var cnt = 0;
+          (pl.segments || []).forEach(function (sg) { if (sg.transit_mode === 'SUBWAY') cnt++; });
+          if (cnt > bestCnt) { bestCnt = cnt; best = pl; }
+        });
+        routes = [best];
+      }
+      if (!routes.length) {
+        out.innerHTML = '<span style="color:#c0392b;">未找到可行路线</span>';
+        return;
+      }
+      var r = routes[0];
+      var dist = r.distance ? (r.distance / 1000).toFixed(1) + ' 公里' : '—';
+      var time = r.time ? Math.round(r.time / 60) + ' 分钟' : '—';
+      var html = '<b>' + o.name + ' → ' + d.name + '</b><br>距离约 ' + dist + '，预计 ' + time;
+      var steps = r.segments || r.steps || [];
+      steps.slice(0, 8).forEach(function (s) {
+        var icon = '';
+        if (s.transit_mode === 'SUBWAY') icon = '🚇 ';
+        else if (s.transit_mode === 'WALKING') icon = '🚶 ';
+        else if (s.transit_mode === 'BUS') icon = '🚌 ';
+        html += '<div class="step">' + icon + (s.instruction || s.way || '') + '</div>';
+      });
+      out.innerHTML = html;
+    });
+  });
+}
+
+// ================= 一键校准坐标（用高德官方 POI 坐标重定位标点） =================
+var calibrating = false, cancelFlag = false;
+// 名称清洗：去掉括号说明与常见尾缀，便于 POI 匹配
+function searchName(name) {
+  var n = name;
+  n = n.replace(/[（(].*?[）)]/g, '');
+  if (n.replace(/^重庆/, '').length >= 3) n = n.replace(/^重庆/, '');
+  n = n.replace(/国家森林公园$/, '').replace(/森林公园$/, '').replace(/风景名胜区$/, '').replace(/旅游景区$/, '').replace(/风景区$/, '').replace(/景区$/, '');
+  n = n.replace(/购物公园$/, '').replace(/步行街$/, '').replace(/商圈$/, '').replace(/文化街区$/, '').replace(/文创街区$/, '').replace(/街区$/, '');
+  n = n.replace(/观景台$/, '').replace(/夜景观$/, '').replace(/夜景$/, '');
+  n = n.replace(/艺术度假区$/, '').replace(/度假区$/, '').replace(/实景演出$/, '');
+  n = n.replace(/大峡谷$/, '').replace(/峡谷$/, '');
+  return n;
+}
+// 备选搜索词：部分地点主名在 POI 库中的常用叫法
+var ALT_NAMES = {
+  '李子坝轻轨穿楼': ['李子坝'],
+  '鹅岭二厂文创公园': ['鹅岭二厂', '二厂文创公园', '贰厂'],
+  '朝天门来福士广场': ['来福士广场', '重庆来福士', '来福士'],
+  '重庆人民大礼堂': ['人民大礼堂'],
+  '南山一棵树观景台': ['一棵树观景台', '南山一棵树'],
+  '壹华里夜景公园': ['壹华里'],
+  '老君洞道观': ['老君洞'],
+  '黄桷垭老街': ['黄桷垭'],
+  '南滨路夜景': ['南滨路'],
+  '磁器口古镇': ['磁器口'],
+  '歌乐山国家森林公园': ['歌乐山'],
+  '观音桥步行街': ['观音桥'],
+  '北仓文创街区': ['北仓'],
+  '鸿恩寺森林公园': ['鸿恩寺'],
+  '天生三桥（天坑三桥）': ['天生三桥'],
+  '仙女山国家森林公园': ['仙女山'],
+  '印象武隆实景演出': ['印象武隆'],
+  '芙蓉江大峡谷': ['芙蓉江'],
+  '白马山天尺坪': ['天尺坪', '白马山'],
+  '天坑寨子景区': ['天坑寨子'],
+  '懒坝国际禅境艺术度假区': ['懒坝'],
+  '大足石刻·宝顶山': ['宝顶山', '大足宝顶山'],
+  '大足石刻·北山': ['北山石刻', '大足北山', '大足石刻'],
+  '奉节白帝城·瞿塘峡': ['白帝城'],
+  '巫山小三峡·小小三峡': ['小三峡'],
+  '云阳龙缸景区': ['龙缸'],
+  '开州汉丰湖': ['汉丰湖'],
+  '龚滩古镇': ['龚滩'],
+  '濯水古镇': ['濯水'],
+  '黔江蒲花暗河': ['蒲花暗河'],
+  '彭水阿依河': ['阿依河'],
+  '南川金佛山': ['金佛山'],
+  '江津四面山': ['四面山'],
+  '合川涞滩古镇': ['涞滩古镇', '涞滩'],
+  '北碚缙云山': ['缙云山'],
+  '周师兄大刀腰片火锅（解放碑总店）': ['周师兄大刀腰片火锅'],
+  '小天鹅火锅（洪崖洞店）': ['小天鹅火锅'],
+  '刘一手火锅（解放碑好吃街旗舰店）': ['刘一手火锅'],
+  '珮姐老火锅（较场口总店）': ['珮姐老火锅'],
+  '楠火锅（四小区总店）': ['楠火锅'],
+  '卤校长老火锅（观音桥直营店）': ['卤校长老火锅'],
+  '秦云老太婆摊摊面（万象城总店）': ['秦云老太婆摊摊面'],
+  '板凳面庄（松石支路店）': ['板凳面庄'],
+  '花市豌杂面（民生路总店）': ['花市豌杂面'],
+  '吴童妹特色江湖菜（黄龙支路店）': ['吴童妹', '吴童妹江湖菜'],
+  '食色飞白（鎏嘉码头店）': ['食色飞白'],
+  '曾老幺鱼庄（长滨路店）': ['曾老幺鱼庄'],
+  '纯阳老酒馆（七星岗店）': ['纯阳老酒馆'],
+  '顺风123（解放碑店）': ['顺风123'],
+  '九村烤脑花（解放碑店）': ['九村烤脑花'],
+  '好又来酸辣粉（八一路总店）': ['好又来酸辣粉'],
+  '如家派柏云酒店（解放碑洪崖洞店）': ['如家派柏云'],
+  '汉庭酒店（解放碑来福士店）': ['汉庭酒店'],
+  '汉庭酒店（观音桥九街店）': ['汉庭酒店'],
+  '重庆彩嘉酒店（解放碑洪崖洞店）': ['彩嘉酒店'],
+  '途悦·Z酒店（解放碑洪崖洞店）': ['途悦', '途悦Z酒店'],
+  '重庆背包十年青年旅舍（解放碑店）': ['背包十年'],
+  '荣悦来酒店（解放碑洪崖洞店）': ['荣悦来', '荣悦来酒店'],
+  '梵朴酒店（南滨路长嘉汇店）': ['梵朴酒店'],
+  '江景印象酒店（南滨公园店）': ['江景印象'],
+  '景悦酒店（南滨路长江索道店）': ['景悦酒店'],
+  '重庆明月朋酒店（南滨路下浩里店）': ['明月朋'],
+  '非晚（南山一棵树店）': ['非晚'],
+  '五瑞华廷花园酒店（南山店）': ['五瑞华廷'],
+  '如家精选酒店（观音桥锦龙支路店）': ['如家精选'],
+  '三脚猫青年旅舍民宿（观音桥店）': ['三脚猫'],
+  '重庆悦磁江景花园酒店（磁器口古镇店）': ['悦磁'],
+  '重庆沙磁时光酒店（磁器口古镇店）': ['沙磁时光'],
+  '重庆玺舍客栈（磁器口古镇店）': ['玺舍'],
+  '重庆武隆途遇主题酒店': ['途遇主题酒店', '途遇', '武隆途遇'],
+  '云汐酒店（仙女山游客中心店）': ['云汐酒店'],
+  '仙女山芮峰酒店（游客接待中心店）': ['芮峰'],
+  '武隆亲爱的客栈': ['亲爱的客栈'],
+  '安悦度假酒店（仙女山游客中心店）': ['安悦度假'],
+  '入山民宿（仙女山游客中心店）': ['入山民宿']
+};
+function checkHit(name, poiName) {
+  if (!poiName) return false;
+  var a = searchName(name);
+  var b = poiName;
+  if (a === b) return true;
+  if (b.indexOf(a) >= 0 || a.indexOf(b) >= 0) return true;
+  var core = a.replace(/观景台$|森林公园$|公园$|古镇$|老街$|广场$|博物馆$|大礼堂$|步行街$|商圈$|道观$|植物园$|动物园$|艺术度假区$|度假区$|演出$|峡谷$|索道$/g, '');
+  if (core && core.length >= 2 && (b.indexOf(core) >= 0 || core.indexOf(b) >= 0)) return true;
+  return false;
+}
+function calibOne(name, cb) {
+  var kws = [searchName(name)].concat(ALT_NAMES[name] || []);
+  function nextKw(attempt) {
+    if (!kws.length || cancelFlag) { cb(null); return; }
+    var kw = kws[0];
+    var ps = new AMap.PlaceSearch({ city: '重庆', pageSize: 5 });
+    ps.search(kw, function (status, result) {
+      if (status === 'complete' && result.poiList && result.poiList.pois.length) {
+        for (var i = 0; i < result.poiList.pois.length; i++) {
+          var poiName = result.poiList.pois[i].name;
+          var kwHit = kw.length >= 2 && (poiName.indexOf(kw) >= 0 || kw.indexOf(poiName) >= 0);
+          if (checkHit(name, poiName) || kwHit) { cb(result.poiList.pois[i]); return; }
+        }
+        kws.shift(); nextKw(0);
+      } else if (attempt < 2 && !cancelFlag) {
+        // 瞬时失败（限流/网络）→ 稍后重试同一关键词
+        setTimeout(function () { nextKw(attempt + 1); }, 700);
+      } else {
+        kws.shift(); nextKw(0);
+      }
+    });
+  }
+  nextKw(0);
+}
+function calibrateCoords() {
+  var statusEl = document.getElementById('calibStatus');
+  if (!statusEl) return;
+  if (calibrating) { cancelFlag = true; statusEl.innerHTML = '正在停止…'; return; }
+  calibrating = true; cancelFlag = false;
+  var total = DATA.length, done = 0, okCount = 0, skipCount = 0, failList = [];
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem('cqCalib') || '{}'); } catch (e) {}
+  function step() {
+    if (cancelFlag) {
+      statusEl.innerHTML = '已停止：成功 ' + okCount + '，跳过 ' + skipCount + '，未匹配 ' + failList.length + ' 个';
+      calibrating = false; return;
+    }
+    if (done >= total) {
+      var msg = '校准完成：成功 ' + okCount + '，跳过 ' + skipCount + '（已校准保存），未匹配 ' + failList.length + ' 个';
+      if (failList.length) {
+        var shown = failList.slice(0, 8).join('、') + (failList.length > 8 ? ' 等' + failList.length + '个' : '');
+        msg += '<br><span style="color:#c0392b;">' + shown + '</span>';
+      }
+      msg += '<br><span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="hideCalib()">[关闭提示]</span>';
+      statusEl.innerHTML = msg;
+      calibrating = false;
+      map.setFitView(allMarkers, false, [60, 60, 60, 60]);
+      return;
+    }
+    var idx = done++;
+    var name = DATA[idx][0];
+    if (saved[name]) { skipCount++; step(); return; }
+    calibOne(name, function (p) {
+      if (p) {
+        okCount++;
+        // 高德 POI 坐标已是 GCJ-02，直接使用，不再做 WGS84 转换
+        allMarkers[idx].setPosition([p.location.lng, p.location.lat]);
+        POINTS[idx].lng = p.location.lng;
+        POINTS[idx].lat = p.location.lat;
+        saved[name] = { lng: p.location.lng, lat: p.location.lat };
+        try { localStorage.setItem('cqCalib', JSON.stringify(saved)); } catch (e) {}
+      } else {
+        failList.push(name);
+      }
+      statusEl.innerHTML = '校准中 ' + Math.min(done, total) + '/' + total + '（成功 ' + okCount + '，跳过 ' + skipCount + '）…';
+      setTimeout(step, 350);
+    });
+  }
+  step();
+}
+function resetCalib() {
+  try { localStorage.removeItem('cqCalib'); } catch (e) {}
+  location.reload();
+}
+function recalibAll() {
+  try { localStorage.removeItem('cqCalib'); } catch (e) {}
+  setTimeout(function () { calibrateCoords(); }, 50);
+}
+
+// ================= 定位（我的位置） =================
+var myPos = null;
+var myMarker = null;
+function locateMe() {
+  var statusEl = document.getElementById('calibStatus');
+  if (!statusEl) return;
+  statusEl.style.display = 'block';
+  if (!navigator.geolocation) {
+    statusEl.innerHTML = '当前浏览器不支持定位。定位需 HTTPS 或 localhost 环境（file:// 会被浏览器拒绝）。';
+    return;
+  }
+  statusEl.innerHTML = '正在获取位置…（手机/浏览器需允许定位权限）';
+  navigator.geolocation.getCurrentPosition(function (pos) {
+    var lng = pos.coords.longitude, lat = pos.coords.latitude;
+    var gc = wgs84ToGcj02(lat, lng); // 浏览器返回 WGS84，转为 GCJ02
+    myPos = { name: '我的位置', lng: gc.lng, lat: gc.lat };
+    if (!myMarker) {
+      myMarker = new AMap.Marker({
+        position: [gc.lng, gc.lat],
+        content: '<div style="width:16px;height:16px;border-radius:50%;background:#1e90ff;border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.6);"></div>',
+        offset: new AMap.Pixel(-11, -11),
+        title: '我的位置'
+      });
+      myMarker.setMap(map);
+    } else {
+      myMarker.setPosition([gc.lng, gc.lat]);
+    }
+    map.setZoomAndCenter(16, [gc.lng, gc.lat]);
+    fromPt = myPos; // 自动作为路线起点
+    document.getElementById('fromInput').value = '我的位置';
+    statusEl.innerHTML = '已定位（精度约 ' + Math.round(pos.coords.accuracy) + ' 米），蓝点已标出，并已设为路线起点。点任意标点"到这里去"即可规划路线。<br><span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="hideCalib()">[关闭提示]</span>';
+  }, function (err) {
+    var msg = '定位失败：';
+    if (err.code === 1) msg += '用户拒绝授权';
+    else if (err.code === 2) msg += '无法获取位置';
+    else if (err.code === 3) msg += '定位超时';
+    else msg += err.message;
+    statusEl.innerHTML = msg + '（定位需 HTTPS 或 localhost 环境，file:// 打开会被拒绝）';
+  }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+}
+function hideCalib() {
+  var s = document.getElementById('calibStatus');
+  if (s) s.style.display = 'none';
+}
+// 暴露给页面内联事件使用
+window.togglePanel = togglePanel;
+window.switchBase = switchBase;
+window.toggleGroup = toggleGroup;
+window.toggleSubway = toggleSubway;
+window.calibrateCoords = calibrateCoords;
+window.recalibAll = recalibAll;
+window.resetCalib = resetCalib;
+window.locateMe = locateMe;
+window.hideCalib = hideCalib;
+window.doRoute = doRoute;
+window.closeRoute = closeRoute;
+window.routeFrom = routeFrom;
+window.routeTo = routeTo;
+window.manualFix = manualFix;
+window.aiIntro = aiIntro;
+}
+ensureMap();
+</script>
+</body>
+</html>
