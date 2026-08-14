@@ -40,7 +40,6 @@
     #searchHint { display:none; }
     #routePanel { left:0; right:0; top:auto; bottom:0; width:auto; max-height:55vh; border-radius:12px 12px 0 0; padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
     .ctrl { top:auto; bottom:8px; right:8px; left:auto; width:min(210px, 46vw); max-height:60vh; overflow-y:auto; }
-    .ctrl .pbody { display:none; }
     .ctrl .btn { min-height:38px; font-size:13px; }
     #calibStatus { max-width:180px; }
     #manualHint { width:90%; text-align:center; }
@@ -544,7 +543,8 @@ function togglePanel() {
   var pb = ctrlDom.querySelector('.pbody');
   var pt = ctrlDom.querySelector('.ptoggle');
   if (!pb) return;
-  if (pb.style.display === 'none') { pb.style.display = ''; if (pt) pt.innerHTML = '收起 ▲'; }
+  var hidden = pb.style.display === 'none' || getComputedStyle(pb).display === 'none';
+  if (hidden) { pb.style.display = 'block'; if (pt) pt.innerHTML = '收起 ▲'; }
   else { pb.style.display = 'none'; if (pt) pt.innerHTML = '展开 ▼'; }
 }
 
