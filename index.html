@@ -33,15 +33,21 @@
   .btn-primary { background:#4a90d9; color:#fff; width:100%; margin-top:4px; padding:5px 0; border:none; border-radius:4px; cursor:pointer; font-size:13px; }
   #calibStatus { max-height:130px; overflow-y:auto; max-width:250px; word-break:break-all; }
   #manualHint { position:absolute; top:100px; left:50%; transform:translateX(-50%); z-index:1001; background:rgba(255,165,0,.95); color:#fff; padding:8px 16px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.3); font-size:13px; display:none; }
-  /* 移动端适配 */
+  /* 移动端适配：标题隐藏、搜索置顶全宽、路线底部抽屉、控制面板右下收起 */
   @media (max-width: 640px) {
-    #title { font-size:12px; padding:4px 10px; white-space:normal; width:88%; text-align:center; }
-    #searchBox { width:92%; top:46px; }
+    #title { display:none; }
+    #searchBox { top:8px; left:8px; right:8px; width:auto; max-width:none; transform:none; padding:5px 8px; }
     #searchHint { display:none; }
-    #routePanel { left:4px; right:4px; top:52px; width:auto; max-height:65%; overflow-y:auto; }
-    .ctl { max-width:88vw; }
-    #calibStatus { max-width:200px; }
-    #manualHint { width:88%; text-align:center; }
+    #routePanel { left:0; right:0; top:auto; bottom:0; width:auto; max-height:55vh; border-radius:12px 12px 0 0; padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
+    .ctrl { top:auto; bottom:8px; right:8px; left:auto; width:min(210px, 46vw); max-height:60vh; overflow-y:auto; }
+    .ctrl .pbody { display:none; }
+    .ctrl .btn { min-height:38px; font-size:13px; }
+    #calibStatus { max-width:180px; }
+    #manualHint { width:90%; text-align:center; }
+    .schip { font-size:12px; padding:3px 9px; }
+  }
+  @media (max-width: 600px) {
+    #legendBox { display:none; }
   }
   #configOverlay { position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; }
   #configBox { background:#fff; border-radius:10px; padding:18px 20px; width:min(380px, 92vw); box-shadow:0 4px 20px rgba(0,0,0,.3); font-size:13px; max-height:85vh; overflow:auto; }
@@ -54,11 +60,6 @@
   .schip { display:inline-block; border:1px solid #ccc; background:#f7f9fc; color:#4a90d9; border-radius:4px; padding:1px 7px; margin:2px 3px 0 0; font-size:11px; text-decoration:none; }
   .schip:hover { background:#e8f0fb; }
   .ctrl .btn { min-height:28px; width:100%; margin-top:4px; font-size:12px; }
-  @media (max-width:640px) {
-    .ctrl { width:min(240px, 48vw); }
-    .ctrl .btn { min-height:38px; font-size:13px; }
-    .grid2 label { font-size:12px; }
-  }
 </style>
 </head>
 <body>
@@ -116,38 +117,56 @@
 <script>
 /* ============ 高德地图配置（Key 仅保存在本机浏览器，可放心上传到 GitHub） ============ */
 var CONFIG_KEY = 'cqAmapKey', CONFIG_JSCODE = 'cqAmapJsCode';
-function getSavedKey() { try { return localStorage.getItem(CONFIG_KEY) || ''; } catch (e) { return ''; } }
-function getSavedJsCode() { try { return localStorage.getItem(CONFIG_JSCODE) || ''; } catch (e) { return ''; } }
-function getSavedAiBase() { try { return localStorage.getItem('cqAiBase') || ''; } catch (e) { return ''; } }
-function getSavedAiKey() { try { return localStorage.getItem('cqAiKey') || ''; } catch (e) { return ''; } }
-function getSavedAiModel() { try { return localStorage.getItem('cqAiModel') || 'gpt-4o-mini'; } catch (e) { return 'gpt-4o-mini'; } }
+var memStore = {};
+function kvGet(k) { try { var v = localStorage.getItem(k); if (v !== null) return v; } catch (e) {} return (k in memStore) ? memStore[k] : null; }
+function kvSet(k, v) { memStore[k] = v; try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+function getSavedKey() { return kvGet(CONFIG_KEY) || ''; }
+function getSavedJsCode() { return kvGet(CONFIG_JSCODE) || ''; }
+function getSavedAiBase() { return kvGet('cqAiBase') || ''; }
+function getSavedAiKey() { return kvGet('cqAiKey') || ''; }
+function getSavedAiModel() { return kvGet('cqAiModel') || 'gpt-4o-mini'; }
 function showConfig(msg) {
   var k = document.getElementById('cfgKey'), j = document.getElementById('cfgJsCode');
   if (!k) return;
   k.value = getSavedKey();
-  j.value = getSavedJsCode();
-  document.getElementById('cfgAiBase').value = getSavedAiBase();
-  document.getElementById('cfgAiKey').value = getSavedAiKey();
-  document.getElementById('cfgAiModel').value = getSavedAiModel();
-  document.getElementById('cfgMsg').innerHTML = msg || '';
+  if (j) j.value = getSavedJsCode();
+  var el;
+  if ((el = document.getElementById('cfgAiBase'))) el.value = getSavedAiBase();
+  if ((el = document.getElementById('cfgAiKey'))) el.value = getSavedAiKey();
+  if ((el = document.getElementById('cfgAiModel'))) el.value = getSavedAiModel();
+  var m = document.getElementById('cfgMsg');
+  if (m) m.innerHTML = msg || '';
   document.getElementById('configOverlay').style.display = 'flex';
 }
 function saveConfig() {
-  var k = document.getElementById('cfgKey').value.trim();
-  var j = document.getElementById('cfgJsCode').value.trim();
-  var ab = document.getElementById('cfgAiBase').value.trim();
-  var ak = document.getElementById('cfgAiKey').value.trim();
-  var am = document.getElementById('cfgAiModel').value.trim() || 'gpt-4o-mini';
-  var savedK = getSavedKey();
-  if (!k && !savedK) { document.getElementById('cfgMsg').innerHTML = '请填写高德 API Key（地图必需）；AI Key 可不填'; return; }
+  var msgEl = document.getElementById('cfgMsg');
+  var btn = document.querySelector('#configBox .btn-primary');
   try {
-    localStorage.setItem(CONFIG_KEY, k || savedK);
-    localStorage.setItem(CONFIG_JSCODE, j);
-    localStorage.setItem('cqAiBase', ab);
-    localStorage.setItem('cqAiKey', ak);
-    localStorage.setItem('cqAiModel', am);
-  } catch (e) {}
-  location.reload();
+    var kEl = document.getElementById('cfgKey');
+    if (!kEl) { if (msgEl) msgEl.innerHTML = '页面元素缺失：请强制刷新（Ctrl+F5）或重新下载最新文件'; return; }
+    var k = kEl.value.trim();
+    var j = (document.getElementById('cfgJsCode') || { value: '' }).value.trim();
+    var ab = (document.getElementById('cfgAiBase') || { value: '' }).value.trim();
+    var ak = (document.getElementById('cfgAiKey') || { value: '' }).value.trim();
+    var am = (document.getElementById('cfgAiModel') || { value: '' }).value.trim() || 'gpt-4o-mini';
+    var savedK = getSavedKey();
+    if (!k && !savedK) { if (msgEl) msgEl.innerHTML = '请填写高德 API Key（地图必需）；AI Key 可不填'; return; }
+    if (btn) { btn.innerHTML = '保存中…'; btn.disabled = true; }
+    var lsOk = kvSet(CONFIG_KEY, k || savedK);
+    kvSet(CONFIG_JSCODE, j);
+    kvSet('cqAiBase', ab);
+    kvSet('cqAiKey', ak);
+    kvSet('cqAiModel', am);
+    if (lsOk) { location.reload(); return; }
+    // localStorage 不可用：内存临时生效，不刷新直接加载
+    if (msgEl) msgEl.innerHTML = '⚠ 浏览器本地存储不可用（可能处于隐私/无痕模式），已临时生效本次会话；刷新后需重新填写，建议改用普通模式打开。';
+    document.getElementById('configOverlay').style.display = 'none';
+    if (btn) { btn.innerHTML = '保存并加载地图'; btn.disabled = false; }
+    ensureMap();
+  } catch (err) {
+    if (btn) { btn.innerHTML = '保存并加载地图'; btn.disabled = false; }
+    if (msgEl) msgEl.innerHTML = '保存出错：' + (err && err.message ? err.message : err) + '（请强制刷新 Ctrl+F5 后重试）';
+  }
 }
 function loadAMap(cb) {
   var key = getSavedKey();
@@ -479,6 +498,7 @@ map.setFitView(allMarkers, false, [60, 60, 60, 60]);
 
 // 图例（左下角）
 var legendDom = document.createElement('div');
+legendDom.id = 'legendBox';
 legendDom.className = 'ctl';
 legendDom.style.cssText = 'left:8px;bottom:20px;padding:6px 10px;line-height:1.8;font-size:12px;';
 var lg = '<b>图例</b>';
@@ -492,7 +512,7 @@ map.getContainer().appendChild(legendDom);
 var ctrlDom = document.createElement('div');
 ctrlDom.className = 'ctl ctrl';
 ctrlDom.style.cssText = 'right:10px;top:56px;';
-var ch = '<div class="phead"><b>控制</b><span class="ptoggle" onclick="togglePanel()">收起 ▲</span></div>';
+var ch = '<div class="phead" onclick="togglePanel()"><b>控制</b><span class="ptoggle">收起 ▲</span></div>';
 ch += '<div class="pbody">';
 ch += '<b>底图</b><div class="grid2">';
 ch += '<label><input type="radio" name="bm" value="street" checked onchange="switchBase(this.value)"> 街道</label>';
@@ -513,12 +533,19 @@ ch += '<div id="calibStatus" style="font-size:11px;color:#666;margin-top:4px;lin
 ch += '</div>';
 ctrlDom.innerHTML = ch;
 map.getContainer().appendChild(ctrlDom);
+// 手机端（≤640px）默认收起，并同步按钮文字（避免 CSS 隐藏与 JS 判断状态不一致）
+if (window.innerWidth <= 640) {
+  var pb0 = ctrlDom.querySelector('.pbody');
+  var pt0 = ctrlDom.querySelector('.ptoggle');
+  if (pb0) pb0.style.display = 'none';
+  if (pt0) pt0.innerHTML = '展开 ▼';
+}
 function togglePanel() {
   var pb = ctrlDom.querySelector('.pbody');
   var pt = ctrlDom.querySelector('.ptoggle');
   if (!pb) return;
-  if (pb.style.display === 'none') { pb.style.display = ''; pt.innerHTML = '收起 ▲'; }
-  else { pb.style.display = 'none'; pt.innerHTML = '展开 ▼'; }
+  if (pb.style.display === 'none') { pb.style.display = ''; if (pt) pt.innerHTML = '收起 ▲'; }
+  else { pb.style.display = 'none'; if (pt) pt.innerHTML = '展开 ▼'; }
 }
 
 var satLayer = new AMap.TileLayer.Satellite();
@@ -1213,12 +1240,42 @@ function locateMe() {
     statusEl.innerHTML = '已定位（精度约 ' + Math.round(pos.coords.accuracy) + ' 米），蓝点已标出，并已设为路线起点。点任意标点"到这里去"即可规划路线。<br><span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="hideCalib()">[关闭提示]</span>';
   }, function (err) {
     var msg = '定位失败：';
-    if (err.code === 1) msg += '用户拒绝授权';
-    else if (err.code === 2) msg += '无法获取位置';
-    else if (err.code === 3) msg += '定位超时';
-    else msg += err.message;
-    statusEl.innerHTML = msg + '（定位需 HTTPS 或 localhost 环境，file:// 打开会被拒绝）';
+    var tip = '可在地图上点选你的位置。';
+    if (err.code === 1) { msg += '用户拒绝授权'; tip = '请点击浏览器地址栏左侧的锁/图标 → 网站设置 → 位置 → 改为"允许"后重试；或直接在下方地图点选你的位置。'; }
+    else if (err.code === 2) { msg += '无法获取位置'; tip = '请确认设备已开启定位（手机设置 → 定位），或在地图上点选你的位置。'; }
+    else if (err.code === 3) { msg += '定位超时'; tip = '可重试，或在地图上点选你的位置。'; }
+    else { msg += err.message; tip = '可在地图上点选你的位置。'; }
+    statusEl.innerHTML = msg + '。<br>' + tip + '<br><span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="pickMyPos()">📍 在地图上点选我的位置</span> &nbsp;|&nbsp; <span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="hideCalib()">[关闭]</span>';
+    try { pickMyPos(); } catch (e) {}
   }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+}
+// 定位被拒时的兜底：在地图上点选"我的位置"
+function pickMyPos() {
+  if (manualTarget >= 0) { manualTarget = -1; manualHintEl.style.display = 'none'; map.off('click', onManualClick); }
+  manualHintEl.innerHTML = '点击地图设置「我的位置」（按 Esc 取消）';
+  manualHintEl.style.display = 'block';
+  map.on('click', onPickMyPos);
+}
+function onPickMyPos(e) {
+  var pos = [e.lnglat.lng, e.lnglat.lat];
+  if (!myMarker) {
+    myMarker = new AMap.Marker({
+      position: pos,
+      content: '<div style="width:16px;height:16px;border-radius:50%;background:#1e90ff;border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.6);"></div>',
+      offset: new AMap.Pixel(-11, -11),
+      title: '我的位置'
+    });
+    myMarker.setMap(map);
+  } else {
+    myMarker.setPosition(pos);
+  }
+  myPos = { name: '我的位置', lng: pos[0], lat: pos[1] };
+  fromPt = myPos;
+  document.getElementById('fromInput').value = '我的位置';
+  map.setZoomAndCenter(16, pos);
+  manualHintEl.style.display = 'none';
+  map.off('click', onPickMyPos);
+  showCalibMsg('已在地图上设置「我的位置」，并已设为路线起点。<br><span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="hideCalib()">[关闭提示]</span>');
 }
 function hideCalib() {
   var s = document.getElementById('calibStatus');
@@ -1233,6 +1290,7 @@ window.calibrateCoords = calibrateCoords;
 window.recalibAll = recalibAll;
 window.resetCalib = resetCalib;
 window.locateMe = locateMe;
+window.pickMyPos = pickMyPos;
 window.hideCalib = hideCalib;
 window.doRoute = doRoute;
 window.closeRoute = closeRoute;
