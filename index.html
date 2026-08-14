@@ -532,21 +532,32 @@ ch += '<div id="calibStatus" style="font-size:11px;color:#666;margin-top:4px;lin
 ch += '</div>';
 ctrlDom.innerHTML = ch;
 map.getContainer().appendChild(ctrlDom);
-// 手机端（≤640px）默认收起，并同步按钮文字（避免 CSS 隐藏与 JS 判断状态不一致）
-if (window.innerWidth <= 640) {
-  var pb0 = ctrlDom.querySelector('.pbody');
-  var pt0 = ctrlDom.querySelector('.ptoggle');
-  if (pb0) pb0.style.display = 'none';
-  if (pt0) pt0.innerHTML = '展开 ▼';
+// 手机端悬浮按钮（⚙）：收起时整个面板隐藏，只留一个小圆钮
+var fab = document.createElement('div');
+fab.innerHTML = '⚙';
+fab.title = '控制面板';
+fab.style.cssText = 'display:none;position:absolute;bottom:8px;right:8px;z-index:1001;width:44px;height:44px;border-radius:50%;background:#4a90d9;color:#fff;font-size:22px;line-height:44px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer;';
+fab.onclick = function () { expandPanel(); };
+map.getContainer().appendChild(fab);
+function expandPanel() {
+  fab.style.display = 'none';
+  ctrlDom.style.display = 'block';
+  var pb = ctrlDom.querySelector('.pbody');
+  var pt = ctrlDom.querySelector('.ptoggle');
+  if (pb) pb.style.display = 'block';
+  if (pt) pt.innerHTML = '收起 ▲';
 }
 function togglePanel() {
   var pb = ctrlDom.querySelector('.pbody');
   var pt = ctrlDom.querySelector('.ptoggle');
   if (!pb) return;
-  var hidden = pb.style.display === 'none' || getComputedStyle(pb).display === 'none';
-  if (hidden) { pb.style.display = 'block'; if (pt) pt.innerHTML = '收起 ▲'; }
+  if (pb.style.display === 'none' || getComputedStyle(pb).display === 'none') { expandPanel(); return; }
+  // 收起
+  if (window.innerWidth <= 640) { ctrlDom.style.display = 'none'; fab.style.display = 'block'; }
   else { pb.style.display = 'none'; if (pt) pt.innerHTML = '展开 ▼'; }
 }
+// 手机端默认收起：面板隐藏，只显示 ⚙ 按钮
+if (window.innerWidth <= 640) { ctrlDom.style.display = 'none'; fab.style.display = 'block'; }
 
 var satLayer = new AMap.TileLayer.Satellite();
 var roadLayer = new AMap.TileLayer.RoadNet();
@@ -1239,13 +1250,25 @@ function locateMe() {
     document.getElementById('fromInput').value = '我的位置';
     statusEl.innerHTML = '已定位（精度约 ' + Math.round(pos.coords.accuracy) + ' 米），蓝点已标出，并已设为路线起点。点任意标点"到这里去"即可规划路线。<br><span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="hideCalib()">[关闭提示]</span>';
   }, function (err) {
+    var ua = navigator.userAgent || '';
+    var isWeixin = ua.indexOf('MicroMessenger') >= 0;
+    var isIOS = /iPhone|iPad|iPod/i.test(ua);
     var msg = '定位失败：';
-    var tip = '可在地图上点选你的位置。';
-    if (err.code === 1) { msg += '用户拒绝授权'; tip = '请点击浏览器地址栏左侧的锁/图标 → 网站设置 → 位置 → 改为"允许"后重试；或直接在下方地图点选你的位置。'; }
-    else if (err.code === 2) { msg += '无法获取位置'; tip = '请确认设备已开启定位（手机设置 → 定位），或在地图上点选你的位置。'; }
-    else if (err.code === 3) { msg += '定位超时'; tip = '可重试，或在地图上点选你的位置。'; }
-    else { msg += err.message; tip = '可在地图上点选你的位置。'; }
-    statusEl.innerHTML = msg + '。<br>' + tip + '<br><span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="pickMyPos()">📍 在地图上点选我的位置</span> &nbsp;|&nbsp; <span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="hideCalib()">[关闭]</span>';
+    var tip = '';
+    if (isWeixin) {
+      msg = '微信内置浏览器可能不弹定位授权';
+      tip = '请点击右上角「···」→ 选择「在 Safari 中打开」后重试；或点「📍 地图点选我的位置」。';
+    } else if (err.code === 1) {
+      msg += '用户拒绝授权';
+      tip = isIOS
+        ? 'iPhone：请到 设置 → 隐私与安全 → 定位服务 → Safari 网站 → 改为「允许」；若之前点过"不允许"，需先 设置 → Safari → 清除历史记录与网站数据 重置，再刷新重试。'
+        : '请点击浏览器地址栏左侧的锁/图标 → 网站设置 → 位置 → 改为"允许"后重试。';
+    } else if (err.code === 2) {
+      msg += '无法获取位置';
+      tip = '请确认设备定位已开启：iPhone 在 设置 → 隐私与安全 → 定位服务 中确认总开关与 Safari 均为「允许」；或点「📍 地图点选我的位置」。';
+    } else if (err.code === 3) { msg += '定位超时'; tip = '可点「🔄 重新定位」重试，或用「📍 地图点选我的位置」。'; }
+    else { msg += err.message; tip = '可点「📍 地图点选我的位置」。'; }
+    statusEl.innerHTML = msg + '。<br>' + tip + '<br><span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="locateMe()">🔄 重新定位</span> &nbsp;|&nbsp; <span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="pickMyPos()">📍 地图点选我的位置</span> &nbsp;|&nbsp; <span style="cursor:pointer;color:#4a90d9;text-decoration:underline;" onclick="hideCalib()">[关闭]</span>';
     try { pickMyPos(); } catch (e) {}
   }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
 }
