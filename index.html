@@ -512,7 +512,7 @@ map.getContainer().appendChild(legendDom);
 var ctrlDom = document.createElement('div');
 ctrlDom.className = 'ctl ctrl';
 ctrlDom.style.cssText = 'right:10px;top:56px;';
-var ch = '<div class="phead"><b>控制</b><span class="ptoggle" onclick="togglePanel()">收起 ▲</span></div>';
+var ch = '<div class="phead" onclick="togglePanel()"><b>控制</b><span class="ptoggle">收起 ▲</span></div>';
 ch += '<div class="pbody">';
 ch += '<b>底图</b><div class="grid2">';
 ch += '<label><input type="radio" name="bm" value="street" checked onchange="switchBase(this.value)"> 街道</label>';
@@ -533,12 +533,19 @@ ch += '<div id="calibStatus" style="font-size:11px;color:#666;margin-top:4px;lin
 ch += '</div>';
 ctrlDom.innerHTML = ch;
 map.getContainer().appendChild(ctrlDom);
+// 手机端（≤640px）默认收起，并同步按钮文字（避免 CSS 隐藏与 JS 判断状态不一致）
+if (window.innerWidth <= 640) {
+  var pb0 = ctrlDom.querySelector('.pbody');
+  var pt0 = ctrlDom.querySelector('.ptoggle');
+  if (pb0) pb0.style.display = 'none';
+  if (pt0) pt0.innerHTML = '展开 ▼';
+}
 function togglePanel() {
   var pb = ctrlDom.querySelector('.pbody');
   var pt = ctrlDom.querySelector('.ptoggle');
   if (!pb) return;
-  if (pb.style.display === 'none') { pb.style.display = ''; pt.innerHTML = '收起 ▲'; }
-  else { pb.style.display = 'none'; pt.innerHTML = '展开 ▼'; }
+  if (pb.style.display === 'none') { pb.style.display = ''; if (pt) pt.innerHTML = '收起 ▲'; }
+  else { pb.style.display = 'none'; if (pt) pt.innerHTML = '展开 ▼'; }
 }
 
 var satLayer = new AMap.TileLayer.Satellite();
