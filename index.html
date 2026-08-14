@@ -559,6 +559,28 @@ function togglePanel() {
 // 手机端默认收起：面板隐藏，只显示 ⚙ 按钮
 if (window.innerWidth <= 640) { ctrlDom.style.display = 'none'; fab.style.display = 'block'; }
 
+// Safari/浏览器底部工具栏遮挡适配：visualViewport 变化（工具栏出现/键盘弹起）时自动抬高底部元素
+function adjustBottomChrome() {
+  if (window.innerWidth <= 640) {
+    var lift = 0;
+    if (window.visualViewport) {
+      var vv = window.visualViewport;
+      var bottomChrome = window.innerHeight - vv.offsetTop - vv.height;
+      if (bottomChrome > 0) lift = Math.round(bottomChrome);
+    }
+    fab.style.bottom = (lift + 8) + 'px';
+    ctrlDom.style.bottom = (lift + 8) + 'px';
+    var rp = document.getElementById('routePanel');
+    if (rp) rp.style.bottom = lift + 'px';
+  }
+}
+if (window.visualViewport && window.visualViewport.addEventListener) {
+  window.visualViewport.addEventListener('resize', adjustBottomChrome);
+  window.visualViewport.addEventListener('scroll', adjustBottomChrome);
+}
+window.addEventListener('resize', adjustBottomChrome);
+adjustBottomChrome();
+
 var satLayer = new AMap.TileLayer.Satellite();
 var roadLayer = new AMap.TileLayer.RoadNet();
 var subwayLayer = null;
